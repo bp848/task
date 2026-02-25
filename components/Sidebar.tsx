@@ -29,23 +29,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
   ];
 
   const projects = [
-    { id: 'p1', name: '制作・デザイン', color: 'bg-rose-400' },
-    { id: 'p2', name: '進行管理・MTG', color: 'bg-emerald-400' },
+    { id: 'p1', name: '制作・デザイン', color: 'bg-zinc-400' },
+    { id: 'p2', name: '進行管理・MTG', color: 'bg-zinc-500' },
   ];
 
   return (
-    <aside className={`bg-rose-50/30 flex flex-col h-full border-r border-rose-100 transition-all duration-200 ${isOpen ? 'w-64' : 'w-16'}`}>
-      <div className={`p-4 border-b border-rose-100 flex items-center ${isOpen ? 'justify-between' : 'justify-center'}`}>
+    <aside className={`bg-zinc-50/30 flex flex-col h-full border-r border-zinc-100 transition-all duration-200 ${isOpen ? 'w-64' : 'w-16'}`}>
+      <div className={`p-4 border-b border-zinc-100 flex items-center ${isOpen ? 'justify-between' : 'justify-center'}`}>
         {isOpen ? (
           <div className="flex items-center space-x-3">
-            <img src={user.avatar} className="w-8 h-8 rounded-full border border-rose-200" alt="User" />
+            <img src={user.avatar} className="w-8 h-8 rounded-full border border-zinc-200" alt="User" />
             <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-700">{user.name}</span>
-              <span className="text-[10px] text-rose-400 font-bold uppercase tracking-tight">{user.role}</span>
+              <span className="text-xs font-bold text-zinc-700">{user.name}</span>
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight">{user.role}</span>
             </div>
           </div>
         ) : (
-          <img src={user.avatar} className="w-8 h-8 rounded-full border border-rose-200" alt="User" />
+          <img src={user.avatar} className="w-8 h-8 rounded-full border border-zinc-200" alt="User" />
         )}
       </div>
 
@@ -57,8 +57,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
                 onClick={() => onViewChange(item.id as ViewType)}
                 className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-all ${
                   currentView === item.id 
-                    ? 'bg-rose-500 text-white shadow-lg shadow-rose-200' 
-                    : 'text-slate-600 hover:bg-rose-100/50'
+                    ? 'bg-zinc-800 text-white shadow-lg shadow-zinc-200' 
+                    : 'text-zinc-600 hover:bg-zinc-100/50'
                 }`}
               >
                 <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
 
         {isOpen && (
           <div className="mt-8 px-4">
-            <h3 className="text-[10px] font-black text-rose-300 uppercase tracking-widest mb-4">プロジェクト</h3>
+            <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest mb-4">プロジェクト</h3>
             <ul className="space-y-1">
               {projects.map(p => (
                 <li key={p.id}>
@@ -80,8 +80,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
                     onClick={() => onViewChange('project-detail', p.id)}
                     className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all ${
                       currentView === 'project-detail' && selectedProjectId === p.id
-                        ? 'bg-rose-50 text-rose-600 font-bold border border-rose-100'
-                        : 'text-slate-600 hover:bg-rose-50'
+                        ? 'bg-zinc-50 text-zinc-900 font-bold border border-zinc-100'
+                        : 'text-zinc-600 hover:bg-zinc-50'
                     }`}
                   >
                     <div className={`w-2 h-2 rounded-full ${p.color} mr-3`}></div>
@@ -94,10 +94,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
         )}
       </nav>
 
-      <div className="p-4 border-t border-rose-100">
+      <div className="p-4 border-t border-zinc-100">
         <button 
           onClick={toggleSidebar} 
-          className="w-full flex items-center justify-center p-2 hover:bg-rose-100 rounded-lg text-rose-300 transition-all"
+          className="w-full flex items-center justify-center p-2 hover:bg-zinc-100 rounded-lg text-zinc-300 transition-all"
         >
           <svg className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path d="M13 5l7 7-7 7M5 5l7 7-7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

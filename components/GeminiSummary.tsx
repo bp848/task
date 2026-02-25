@@ -19,9 +19,40 @@ const GeminiSummary: React.FC<GeminiSummaryProps> = ({ tasks, targetDate }) => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const dayTasks = tasks.filter(t => t.date === targetDate && t.completed);
       
-      const taskList = dayTasks
-        .sort((a,b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'))
-        .map(t => `${t.startTime || '??:??'}-${t.endTime || '??:??'}　${t.title}`)
+      const timeGroups: Record<string, Task[]> = {};
+      dayTasks.forEach(t => {
+        const start = t.startTime || '??:??';
+        let end = t.endTime;
+        if (!end && t.startTime && t.estimatedTime) {
+          const [h, m] = t.startTime.split(':').map(Number);
+          const totalMins = h * 60 + m + Math.floor(t.estimatedTime / 60);
+          const eh = Math.floor(totalMins / 60) % 24;
+          const em = totalMins % 60;
+          end = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+        } else if (!end) {
+          end = '??:??';
+        }
+        const timeKey = `■${start}–${end}`;
+        if (!timeGroups[timeKey]) timeGroups[timeKey] = [];
+        timeGroups[timeKey].push(t);
+      });
+
+      const taskList = Object.entries(timeGroups)
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+        .map(([timeKey, tasksInGroup]) => {
+          const tasksStr = tasksInGroup.map(t => {
+            let str = `・${t.title}`;
+            if (t.details) {
+              const detailsLines = t.details.split('\n').map(d => {
+                if (d.startsWith('（') || d.startsWith('(')) return d;
+                return `（${d}）`;
+              }).join('\n');
+              str += `\n${detailsLines}`;
+            }
+            return str;
+          }).join('\n');
+          return `${timeKey}\n${tasksStr}`;
+        })
         .join('\n');
 
       const dateObj = new Date(targetDate);
@@ -80,22 +111,22 @@ const GeminiSummary: React.FC<GeminiSummaryProps> = ({ tasks, targetDate }) => {
       <button 
         onClick={generateDailyReport}
         disabled={loading}
-        className="w-full bg-rose-600 text-white py-4 rounded-2xl font-black text-sm hover:bg-rose-700 transition-all flex items-center justify-center space-x-2 shadow-xl shadow-rose-200"
+        className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-zinc-900 transition-all flex items-center justify-center space-x-2 shadow-xl shadow-zinc-200"
       >
         <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         <span>社長報告メール用フォーマットを生成</span>
       </button>
 
       {report && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-2xl p-8 shadow-2xl relative animate-in zoom-in duration-300">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest">REPORT GENERATED</h3>
-              <button onClick={() => setReport(null)} className="p-2 hover:bg-rose-50 rounded-full text-rose-400">
+              <h3 className="text-xl font-black text-zinc-900 uppercase tracking-widest">REPORT GENERATED</h3>
+              <button onClick={() => setReport(null)} className="p-2 hover:bg-zinc-50 rounded-full text-zinc-400">
                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeWidth="2.5"/></svg>
               </button>
             </div>
-            <div className="bg-rose-50/20 rounded-2xl p-6 text-[13px] text-slate-800 whitespace-pre-wrap max-h-[400px] overflow-y-auto font-medium border-2 border-rose-50 shadow-inner custom-scrollbar font-mono">
+            <div className="bg-zinc-50/20 rounded-2xl p-6 text-[13px] text-zinc-800 whitespace-pre-wrap max-h-[400px] overflow-y-auto font-medium border-2 border-zinc-50 shadow-inner custom-scrollbar font-mono">
               {report}
             </div>
             <button 
@@ -104,7 +135,7 @@ const GeminiSummary: React.FC<GeminiSummaryProps> = ({ tasks, targetDate }) => {
                 alert('コピーしました。');
                 setReport(null);
               }}
-              className="w-full mt-6 py-4 bg-rose-600 text-white rounded-2xl font-black shadow-lg shadow-rose-200"
+              className="w-full mt-6 py-4 bg-zinc-900 text-white rounded-2xl font-black shadow-lg shadow-zinc-200"
             >
               クリップボードにコピー
             </button>

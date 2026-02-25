@@ -6,7 +6,7 @@
 
 @layer base {
   body {
-    @apply bg-[#fffafb] text-slate-900;
+    @apply bg-zinc-50 text-zinc-900;
   }
 }
 
@@ -16,14 +16,14 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #fff1f2; /* rose-50 */
+  background: #f4f4f5; /* zinc-100 */
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #fecdd3; /* rose-200 */
+  background: #e4e4e7; /* zinc-200 */
   border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #fda4af; /* rose-300 */
+  background: #d4d4d8; /* zinc-300 */
 }

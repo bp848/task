@@ -12,6 +12,7 @@ import ProjectDetailView from './components/views/ProjectDetailView';
 import AiWorkHub from './components/AiWorkHub';
 import { ViewType, Task, Project, Email } from './types';
 import { initialTasks, initialProjects, mockEmails } from './constants';
+import { supabase } from './lib/supabase';
 
 const viewTitleMap: Record<ViewType, string> = {
   'today': '本日の業務',
@@ -44,6 +45,23 @@ const App: React.FC = () => {
   const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
 
   useEffect(() => {
+    // Test Supabase connection
+    const testConnection = async () => {
+      try {
+        const { data, error } = await supabase.from('tasks').select('*').limit(1);
+        if (error) {
+          console.warn('Supabase connection test (table might not exist yet):', error.message);
+        } else {
+          console.log('Supabase connected successfully!');
+        }
+      } catch (err) {
+        console.error('Supabase connection error:', err);
+      }
+    };
+    testConnection();
+  }, []);
+
+  useEffect(() => {
     let interval: number;
     if (activeTaskId) {
       interval = window.setInterval(() => {
@@ -74,13 +92,15 @@ const App: React.FC = () => {
     explicitStartTime?: string,
     isRoutine: boolean = false,
     customerName?: string,
-    projectName?: string
+    projectName?: string,
+    details?: string
   ) => {
     const newTask: Task = {
       id: Math.random().toString(36).substr(2, 9),
       title: title.trim(),
       customerName,
       projectName,
+      details,
       completed: false,
       timeSpent: 0,
       estimatedTime,
@@ -166,7 +186,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-rose-50/20 text-slate-900 font-sans">
+    <div className="flex h-screen bg-zinc-50/20 text-zinc-900 font-sans">
       <Sidebar 
         currentView={currentView} 
         selectedProjectId={selectedProjectId}
@@ -176,29 +196,29 @@ const App: React.FC = () => {
         user={user}
       />
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-16 border-b-2 border-rose-100 bg-white flex items-center justify-between px-8 shrink-0 z-10">
+        <header className="h-16 border-b-2 border-zinc-100 bg-white flex items-center justify-between px-8 shrink-0 z-10">
           <div className="flex items-center space-x-8">
-            <h1 className="text-base font-black text-rose-500 tracking-widest">
+            <h1 className="text-base font-black text-zinc-800 tracking-widest">
               {currentView === 'project-detail' ? projects.find(p => p.id === selectedProjectId)?.name : viewTitleMap[currentView]}
             </h1>
-            <div className="flex items-center space-x-3 text-[11px] font-black text-rose-300">
+            <div className="flex items-center space-x-3 text-[11px] font-black text-zinc-300">
                <span className="tracking-widest">表示日:</span>
                <input 
                   type="date" 
                   value={targetDate} 
                   onChange={(e) => setTargetDate(e.target.value)}
-                  className="bg-rose-50 px-4 py-1.5 rounded-full text-rose-600 font-black outline-none cursor-pointer hover:bg-rose-100 transition-all shadow-inner border border-rose-100"
+                  className="bg-zinc-50 px-4 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100"
                />
             </div>
           </div>
           <div className="flex items-center space-x-6">
              {activeTaskId && (
-               <div className="flex items-center space-x-3 bg-rose-500 text-white px-4 py-1.5 rounded-full shadow-lg shadow-rose-200">
+               <div className="flex items-center space-x-3 bg-zinc-800 text-white px-4 py-1.5 rounded-full shadow-lg shadow-zinc-200">
                   <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
                   <span className="text-[11px] font-black tracking-widest">時間計測中...</span>
                </div>
              )}
-             <div className="text-[11px] font-black text-rose-200 tracking-widest uppercase">ZenWork Mini v1.6.0</div>
+             <div className="text-[11px] font-black text-zinc-200 tracking-widest uppercase">ZenWork Mini v1.6.0</div>
           </div>
         </header>
         <div className="flex-1 overflow-auto custom-scrollbar flex">
