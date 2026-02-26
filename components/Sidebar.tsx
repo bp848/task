@@ -15,9 +15,10 @@ interface SidebarProps {
   isOpen: boolean;
   toggleSidebar: () => void;
   user: User;
+  onLogout?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onViewChange, isOpen, toggleSidebar, user }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onViewChange, isOpen, toggleSidebar, user, onLogout }) => {
   const mainItems = [
     { id: 'today', label: '本日の業務', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
     { id: 'inbox', label: '受信トレイ', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
@@ -112,9 +113,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
           )}
         </nav>
 
-        <div className="p-4 border-t border-zinc-100 hidden md:block">
-          <button 
-            onClick={toggleSidebar} 
+        <div className="p-4 border-t border-zinc-100 hidden md:block space-y-2">
+          {isOpen && onLogout && (
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center px-3 py-2 text-xs font-bold text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              ログアウト
+            </button>
+          )}
+          <button
+            onClick={toggleSidebar}
             className="w-full flex items-center justify-center p-2 hover:bg-zinc-100 rounded-lg text-zinc-300 transition-all"
           >
             <svg className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
