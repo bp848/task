@@ -68,6 +68,9 @@ const App: React.FC = () => {
         setIsGoogleConnected(true);
       }
       setLoading(false);
+    }).catch((err) => {
+      console.error('Failed to get session:', err);
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
