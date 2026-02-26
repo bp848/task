@@ -1,4 +1,5 @@
 
+import { GoogleGenAI } from "@google/genai";
 import React, { useEffect, useState } from 'react';
 import { Task } from '../types';
 
@@ -26,14 +27,38 @@ const AiWorkHub: React.FC<AiWorkHubProps> = ({ task, onClose }) => {
     setAiResponse('');
 
     try {
-      const toolLabels: Record<string, string> = {
-        gmail: 'Gmail連携',
-        sheets: 'スプレッドシート連携',
-        slack: 'Slack連携',
-        drive: 'Driveファイル整理',
-      };
-      await new Promise(r => setTimeout(r, 600));
-      setAiResponse(`【${toolLabels[tool as string] || tool}】\nタスク「${task.title}」の支援機能は準備中です。`);
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      let prompt = '';
+
+      const isEmailTask = task.title.includes('メール') || task.title.includes('送信') || task.title.includes('チェック');
+      const isMeeting = task.title.includes('打ち合わせ') || task.title.includes('MTG');
+
+      if (tool === 'gmail') {
+        if (isEmailTask) {
+          prompt = `MCP Gmail連携機能: タスク「${task.title}」に関するメール対応を支援します。
+          1. 関連する未読メールのチェック概要
+          2. 返信が必要な場合のドラフト作成（丁寧なビジネス日本語）
+          3. 送信内容の最終確認項目
+          を提案してください。`;
+        } else if (isMeeting) {
+          prompt = `タスク「${task.title}」の打ち合わせ後の「お礼と議事録」メール案を橋本社長または顧客向けに作成してください。`;
+        } else {
+          prompt = `タスク「${task.title}」の進捗報告メールのドラフトを作成してください。`;
+        }
+      } else if (tool === 'sheets') {
+        prompt = `タスク「${task.title}」の管理・進捗状況を記録するためのスプレッドシート項目案を5つ提案してください。`;
+      } else if (tool === 'slack') {
+        prompt = `タスク「${task.title}」の現在のステータスをチームに周知するSlack用メッセージを3パターン作成してください。`;
+      } else if (tool === 'drive') {
+        prompt = `タスク「${task.title}」に関連する資料をGoogle Driveで整理するためのフォルダ構造を提案してください。`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+
+      setAiResponse(response.text || '応答を取得できませんでした。');
     } catch (err) {
       setAiResponse('エラーが発生しました。');
     } finally {

@@ -51,23 +51,9 @@ const InboxView: React.FC<InboxViewProps> = ({ tasks, emails, onConvertToTask })
                    <div className="w-2 h-2 bg-zinc-800 rounded-full mr-3 shadow-sm shadow-zinc-400"></div>
                    AI 推奨アクション
                 </h4>
-                {(() => {
-                  const unread = emails.filter(e => !e.isRead);
-                  if (unread.length === 0) {
-                    return (
-                      <p className="text-[13px] text-zinc-50/80 leading-relaxed font-bold">
-                        未読メールはありません。受信トレイはクリーンです。
-                      </p>
-                    );
-                  }
-                  const senders = [...new Set(unread.map(e => e.sender).filter(Boolean))];
-                  const senderText = senders.length <= 2 ? senders.join('・') : `${senders[0]} 他${senders.length - 1}名`;
-                  return (
-                    <p className="text-[13px] text-zinc-50/80 leading-relaxed font-bold">
-                      {senderText}から未読メールが{unread.length}件届いています。タスク化して対応を進めましょう。
-                    </p>
-                  );
-                })()}
+                <p className="text-[13px] text-zinc-50/80 leading-relaxed font-bold">
+                  社長からのメールが1件届いています。「ZENBI 4月号」の進捗報告メールのドラフトを作成することをお勧めします。
+                </p>
              </div>
           </div>
         </div>
