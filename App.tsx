@@ -9,6 +9,8 @@ import HabitsView from './components/views/HabitsView';
 import SettingsView from './components/views/SettingsView';
 import InboxView from './components/views/InboxView';
 import ProjectDetailView from './components/views/ProjectDetailView';
+import TaskCategoryView from './components/views/TaskCategoryView';
+import CustomerView from './components/views/CustomerView';
 import AiWorkHub from './components/AiWorkHub';
 import { ViewType, Task, Project, Email } from './types';
 import { initialProjects } from './constants';
@@ -24,7 +26,9 @@ const viewTitleMap: Record<ViewType, string> = {
   'metrics': '業務分析',
   'habits': '習慣管理',
   'settings': '設定',
-  'project-detail': 'プロジェクト詳細'
+  'project-detail': 'プロジェクト詳細',
+  'task-view': '作業ベース',
+  'customer-view': '顧客ベース'
 };
 
 const GOOGLE_SCOPES = [
@@ -277,6 +281,10 @@ const App: React.FC = () => {
       case 'project-detail':
         const project = projects.find(p => p.id === selectedProjectId);
         return project ? <ProjectDetailView project={project} tasks={tasks} onToggleTask={handleToggleTask} /> : null;
+      case 'task-view':
+        return <TaskCategoryView tasks={tasks} targetDate={targetDate} onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)} onToggleTask={handleToggleTask} />;
+      case 'customer-view':
+        return <CustomerView tasks={tasks} targetDate={targetDate} onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)} onToggleTask={handleToggleTask} />;
       case 'metrics':
         return <MetricsView tasks={tasks} />;
       case 'habits':
