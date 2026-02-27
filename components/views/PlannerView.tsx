@@ -11,12 +11,18 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
   const [inlineInputs, setInlineInputs] = useState<Record<string, string>>({});
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState('');
+  const [weekOffset, setWeekOffset] = useState(0);
 
-  const getISODate = (daysOffset = 0) => {
+  const getWeekStart = (offset: number) => {
     const d = new Date();
-    d.setDate(d.getDate() + daysOffset);
-    return d.toISOString().split('T')[0];
+    const dayOfWeek = d.getDay();
+    const monday = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) + offset * 7;
+    const start = new Date(d);
+    start.setDate(monday);
+    return start;
   };
+
+  const getISODateFromDate = (d: Date) => d.toISOString().split('T')[0];
 
   const getDayInfo = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -26,7 +32,12 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
     return { day, dateNum, month };
   };
 
-  const weekDays = Array.from({ length: 7 }).map((_, i) => getISODate(i));
+  const weekStart = getWeekStart(weekOffset);
+  const weekDays = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return getISODateFromDate(d);
+  });
   const [bulkTargetDate, setBulkTargetDate] = useState(weekDays[0]);
 
   const handleInlineAdd = (date: string) => {
@@ -40,10 +51,11 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
   const handleBulkSubmit = () => {
     if (!bulkText.trim()) return;
 
-    const isTSV = bulkText.includes('\t') && bulkText.includes('朝');
+    const isTSV = bulkText.includes('\t') && /\d{1,2}\/\d{1,2}/.test(bulkText);
     const tasksToAdd: any[] = [];
 
     if (isTSV) {
+      // TSV parser: handle quoted cells with newlines
       const rows: string[][] = [];
       let currentRow: string[] = [];
       let currentCell = '';
@@ -84,68 +96,130 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
         rows.push(currentRow);
       }
 
-      let currentDates: string[] = [];
-      let amCount = 0;
-      let pmCount = 0;
+      // Detect format: old format has "朝/AM/PM/夜" headers, new format has date-row + task-rows
+      const hasOldHeaders = rows.some(r => r[0] && ['朝', 'AM', 'PM', '夜'].includes(r[0].trim()));
 
-      for (const row of rows) {
-        if (!row || row.length === 0) continue;
+      if (hasOldHeaders) {
+        // Old format: "朝" row = dates, "AM"/"PM"/"夜" rows = tasks
+        let currentDates: string[] = [];
+        let amCount = 0;
+        let pmCount = 0;
 
-        const rowHeader = row[0].trim();
+        for (const row of rows) {
+          if (!row || row.length === 0) continue;
+          const rowHeader = row[0].trim();
 
-        if (rowHeader === '朝') {
-          currentDates = [];
-          amCount = 0;
-          pmCount = 0;
-          for (let i = 1; i < row.length; i++) {
-            const dateStr = row[i].trim();
-            if (dateStr) {
-              const [m, d] = dateStr.split('/');
-              if (m && d) {
-                let year = new Date().getFullYear();
-                const currentMonth = new Date().getMonth() + 1;
-                if (parseInt(m) < currentMonth - 6) year++;
-                const isoDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-                currentDates[i] = isoDate;
+          if (rowHeader === '朝') {
+            currentDates = [];
+            amCount = 0;
+            pmCount = 0;
+            for (let i = 1; i < row.length; i++) {
+              const dateStr = row[i].trim();
+              if (dateStr) {
+                const [m, d] = dateStr.split('/');
+                if (m && d) {
+                  let year = new Date().getFullYear();
+                  const currentMonth = new Date().getMonth() + 1;
+                  if (parseInt(m) < currentMonth - 6) year++;
+                  const isoDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                  currentDates[i] = isoDate;
+                }
+              }
+            }
+          } else if (['AM', 'PM', '夜'].includes(rowHeader)) {
+            let startTime = '';
+            if (rowHeader === 'AM') {
+              startTime = amCount === 0 ? '09:00' : '10:30';
+              amCount++;
+            } else if (rowHeader === 'PM') {
+              startTime = pmCount === 0 ? '13:00' : '15:00';
+              pmCount++;
+            } else if (rowHeader === '夜') {
+              startTime = '18:00';
+            }
+
+            for (let i = 1; i < row.length; i++) {
+              const cell = row[i]?.trim();
+              const date = currentDates[i];
+              if (cell && date) {
+                let title = cell;
+                let details = '';
+                if (cell.includes('\n')) {
+                  const lines = cell.split('\n');
+                  title = lines[0].replace(/^学ぶこと、行うこと：/, '').trim();
+                  details = lines.slice(1).join('\n').trim();
+                } else {
+                  title = cell.replace(/^学ぶこと、行うこと：/, '').trim();
+                }
+                if (title === '学ぶこと、行うこと：' || title === '') continue;
+                let customerName = '';
+                const customerMatch = title.match(/^(.+?)様/);
+                if (customerMatch) customerName = customerMatch[1];
+                tasksToAdd.push({ title, customerName, startTime, estimatedTime: 3600, details, date });
               }
             }
           }
-        } else if (['AM', 'PM', '夜'].includes(rowHeader)) {
-          let startTime = '';
-          if (rowHeader === 'AM') {
-            startTime = amCount === 0 ? '09:00' : '10:30';
-            amCount++;
-          } else if (rowHeader === 'PM') {
-            startTime = pmCount === 0 ? '13:00' : '15:00';
-            pmCount++;
-          } else if (rowHeader === '夜') {
-            startTime = '18:00';
+        }
+      } else {
+        // New format: date rows (M/D separated by tabs) followed by task rows
+        // Time slots assigned in order: 09:00, 10:00, 11:00, 13:00, 14:00, ...
+        const TIME_SLOTS = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+        let currentDates: (string | null)[] = [];
+        let taskRowIndex = 0;
+
+        for (const row of rows) {
+          if (!row || row.every(c => !c.trim())) continue;
+
+          // Check if this is a date row: at least 2 cells match M/D pattern
+          const dateMatches = row.filter(c => /^\d{1,2}\/\d{1,2}$/.test(c.trim()));
+          if (dateMatches.length >= 2) {
+            // Date row found - parse dates
+            currentDates = row.map(c => {
+              const match = c.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+              if (!match) return null;
+              const [, m, d] = match;
+              let year = new Date().getFullYear();
+              const currentMonth = new Date().getMonth() + 1;
+              const mon = parseInt(m);
+              if (mon < currentMonth - 6) year++;
+              return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            });
+            taskRowIndex = 0;
+            continue;
           }
 
-          for (let i = 1; i < row.length; i++) {
+          // Task row - each cell is a task for the corresponding date
+          if (currentDates.length === 0) continue;
+          const startTime = TIME_SLOTS[Math.min(taskRowIndex, TIME_SLOTS.length - 1)];
+
+          for (let i = 0; i < row.length; i++) {
             const cell = row[i]?.trim();
             const date = currentDates[i];
-            if (cell && date) {
-              let title = cell;
-              let details = '';
+            if (!cell || !date) continue;
 
-              if (cell.includes('\n')) {
-                const lines = cell.split('\n');
-                title = lines[0].replace(/^学ぶこと、行うこと：/, '').trim();
-                details = lines.slice(1).join('\n').trim();
-              } else {
-                title = cell.replace(/^学ぶこと、行うこと：/, '').trim();
-              }
+            // Parse cell content: may have "学ぶこと、行うこと：" prefix and multi-line with 目的/結果
+            let title = cell;
+            let details = '';
 
-              if (title === '学ぶこと、行うこと：' || title === '') continue;
-
-              let customerName = '';
-              const customerMatch = title.match(/^(.+?)様/);
-              if (customerMatch) customerName = customerMatch[1];
-
-              tasksToAdd.push({ title, customerName, startTime, estimatedTime: 3600, details, date });
+            if (cell.includes('\n')) {
+              const lines = cell.split('\n');
+              title = lines[0].replace(/^学ぶこと、行うこと：/, '').trim();
+              details = lines.slice(1).join('\n').trim();
+            } else {
+              title = cell.replace(/^学ぶこと、行うこと：/, '').trim();
             }
+
+            if (!title || title === '学ぶこと、行うこと：') continue;
+
+            // Split comma-separated items into separate tasks (e.g. "環境整備、MTG")
+            // But only if it's simple (no details)
+            let customerName = '';
+            const customerMatch = title.match(/^(.+?)様/);
+            if (customerMatch) customerName = customerMatch[1];
+
+            tasksToAdd.push({ title, customerName, startTime, estimatedTime: 3600, details, date });
           }
+          taskRowIndex++;
         }
       }
     } else {
@@ -199,7 +273,18 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
     <div className="h-full bg-zinc-50/10 flex flex-col overflow-hidden border-t-2 border-zinc-100">
       <div className="p-6 pb-0 flex-shrink-0">
         <header className="mb-4 flex justify-between items-center">
-          <h2 className="text-base font-black text-zinc-800 tracking-tight">週間プランナー</h2>
+          <div className="flex items-center space-x-3">
+            <h2 className="text-base font-black text-zinc-800 tracking-tight">週間プランナー</h2>
+            <div className="flex items-center space-x-1">
+              <button onClick={() => setWeekOffset(w => w - 1)} className="w-7 h-7 rounded-lg border border-zinc-200 flex items-center justify-center hover:bg-zinc-100 transition-all text-zinc-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <button onClick={() => setWeekOffset(0)} className="px-2 py-1 rounded-lg text-[10px] font-black text-zinc-500 hover:bg-zinc-100 transition-all">今週</button>
+              <button onClick={() => setWeekOffset(w => w + 1)} className="w-7 h-7 rounded-lg border border-zinc-200 flex items-center justify-center hover:bg-zinc-100 transition-all text-zinc-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
           <div className="flex space-x-2">
             <button
               onClick={() => setIsBulkMode(!isBulkMode)}
