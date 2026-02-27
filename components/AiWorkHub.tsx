@@ -10,10 +10,26 @@ interface AiWorkHubProps {
   targetDate?: string;
   onClose: () => void;
   onUpdateTask?: (id: string, updates: Partial<Task>) => void;
+  aiPersona?: string;
+  autoMemo?: boolean;
 }
 
 type ToolType = 'gmail' | 'sheets' | 'slack' | 'drive' | null;
-type TabType = 'workflow' | 'tools';
+type TabType = 'workflow' | 'tools' | 'analysis';
+
+// ペルソナ別のシステムプロンプト
+const PERSONA_PROMPTS: Record<string, string> = {
+  polite: 'あなたは丁寧なビジネスアシスタントです。敬語を使い、簡潔で正確に応答してください。',
+  comedian: 'あなたはお笑い芸人風のアシスタントです。ボケやツッコミを交えつつ、要点はしっかり伝えてください。「なんでやねん！」「ほな」などの関西弁も使ってOK。',
+  cat: 'あなたは猫のアシスタントにゃ。語尾に「にゃ」「にゃん」をつけて、猫っぽく応答するにゃ。でも仕事の内容は正確に伝えるにゃ。',
+  dog: 'あなたは犬のアシスタントわん！語尾に「わん」「ワン」をつけて、元気よく応答するわん！ご主人様のタスクを全力サポートわん！',
+  newscaster: 'あなたはニュースキャスター風のアシスタントです。「お伝えします」「続いてのニュースです」のように、報道調で格調高く応答してください。',
+  auntie: 'あなたは世話好きなおば様のアシスタントよ。「あらまあ」「ちゃんとしなきゃダメよ」のような口調で、温かく世話を焼きながら応答してね。',
+  principal: 'あなたは校長先生風のアシスタントです。「諸君」「心がけたまえ」のような堅い口調で、教訓を交えながら応答してください。',
+  classmate: 'あなたは同級生のアシスタントだよ！タメ口で「マジで」「やばくない？」とかカジュアルに話しつつ、ちゃんと仕事は手伝うよ！',
+  doraemon: 'あなたは未来から来た青いロボット猫のアシスタントです。「ボクに任せて！」「ひみつ道具〜！」のように、明るく頼もしく応答してください。ポケットからいろんな解決策を出す感じで。',
+  pikachu: 'あなたは黄色いモンスター風のアシスタントです。「ピカ！」を時々挟みつつ、電気のようにエネルギッシュに応答してください。でも内容はしっかり伝えます。',
+};
 
 const getEndTime = (startTime: string, seconds: number): string => {
   const [h, m] = startTime.split(':').map(Number);
@@ -247,8 +263,133 @@ const WorkflowWizard: React.FC<{
   );
 };
 
+// --- Evidence auto-analysis sub-component ---
+const EvidenceAnalysis: React.FC<{
+  task: Task;
+  onUpdateTask?: (id: string, updates: Partial<Task>) => void;
+  aiPersona: string;
+}> = ({ task, onUpdateTask, aiPersona }) => {
+  const [analysis, setAnalysis] = useState<string>('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [evidenceInput, setEvidenceInput] = useState(task.evidence || '');
+
+  useEffect(() => {
+    setEvidenceInput(task.evidence || '');
+    setAnalysis('');
+  }, [task.id]);
+
+  const runAnalysis = async () => {
+    const textToAnalyze = evidenceInput || task.details || '';
+    if (!textToAnalyze.trim()) return;
+    setIsAnalyzing(true);
+    setAnalysis('');
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const personaInstruction = PERSONA_PROMPTS[aiPersona] || PERSONA_PROMPTS.polite;
+
+      const prompt = `${personaInstruction}
+
+以下のタスクの証拠メモ・詳細を分析し、業務改善の観点からフィードバックをください。
+
+【タスク情報】
+タスク名: ${task.title}
+顧客: ${task.customerName || '未設定'}
+案件: ${task.projectName || '未設定'}
+実績時間: ${Math.floor(task.timeSpent / 60)}分
+ステータス: ${task.completed ? '完了' : '進行中'}
+
+【証拠メモ・詳細】
+${textToAnalyze}
+
+以下の観点で分析してください：
+1. 作業内容の要約（箇条書き3点以内）
+2. 所要時間の妥当性（${Math.floor(task.timeSpent / 60)}分）
+3. 改善ポイントや次回への提案
+4. 報告書に使える一文サマリ`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+      setAnalysis(response.text || '分析結果を取得できませんでした。');
+    } catch {
+      setAnalysis('分析中にエラーが発生しました。');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleSaveEvidence = () => {
+    onUpdateTask?.(task.id, { evidence: evidenceInput });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="text-[10px] font-black text-zinc-500 tracking-widest block mb-2">証拠メモ</label>
+        <textarea
+          value={evidenceInput}
+          onChange={(e) => setEvidenceInput(e.target.value)}
+          onBlur={handleSaveEvidence}
+          placeholder="作業の証拠・メモを入力...&#10;例: スクリーンショット保存済み、A案で確定、修正3回実施"
+          className="w-full text-xs border-2 border-zinc-200 rounded-xl p-3 min-h-[100px] resize-y outline-none focus:border-blue-400 font-medium text-zinc-700"
+        />
+      </div>
+
+      <button
+        onClick={runAnalysis}
+        disabled={isAnalyzing || (!evidenceInput.trim() && !task.details)}
+        className="w-full py-3 bg-zinc-800 text-white text-xs font-black rounded-xl hover:bg-zinc-700 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+      >
+        {isAnalyzing ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            解析中...
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+            AI自動解析を実行
+          </>
+        )}
+      </button>
+
+      {analysis && (
+        <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-100 animate-in fade-in duration-300">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-black text-blue-600 tracking-widest">AI解析結果</span>
+          </div>
+          <div className="prose prose-sm text-zinc-700 whitespace-pre-wrap leading-relaxed text-xs font-medium">
+            {analysis}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(analysis);
+              }}
+              className="flex-1 py-2 text-[10px] font-black text-zinc-600 border border-zinc-200 rounded-xl hover:bg-zinc-100 transition-all"
+            >
+              コピー
+            </button>
+            <button
+              onClick={() => {
+                const newDetails = task.details ? `${task.details}\n---\n【AI解析】\n${analysis}` : `【AI解析】\n${analysis}`;
+                onUpdateTask?.(task.id, { details: newDetails });
+              }}
+              className="flex-1 py-2 text-[10px] font-black text-white bg-blue-600 rounded-xl hover:bg-blue-500 transition-all"
+            >
+              詳細に追加
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- Main component ---
-const AiWorkHub: React.FC<AiWorkHubProps> = ({ task, tasks = [], targetDate, onClose, onUpdateTask }) => {
+const AiWorkHub: React.FC<AiWorkHubProps> = ({ task, tasks = [], targetDate, onClose, onUpdateTask, aiPersona = 'polite', autoMemo = true }) => {
   const [activeTab, setActiveTab] = useState<TabType>('workflow');
   const [selectedTool, setSelectedTool] = useState<ToolType>(null);
   const [aiResponse, setAiResponse] = useState<string>('');
@@ -268,6 +409,7 @@ const AiWorkHub: React.FC<AiWorkHubProps> = ({ task, tasks = [], targetDate, onC
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const personaInstruction = PERSONA_PROMPTS[aiPersona] || PERSONA_PROMPTS.polite;
       let prompt = '';
 
       const isEmailTask = task.title.includes('メール') || task.title.includes('送信') || task.title.includes('チェック');
@@ -346,7 +488,7 @@ ${task.details ? `（${task.details}）` : ''}`}
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: prompt,
+        contents: `${personaInstruction}\n\n${prompt}`,
       });
 
       setAiResponse(response.text || '応答を取得できませんでした。');
@@ -386,6 +528,15 @@ ${task.details ? `（${task.details}）` : ''}`}
           {activeTab === 'workflow' && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-zinc-800 rounded-full" />}
         </button>
         <button
+          onClick={() => setActiveTab('analysis')}
+          className={`flex-1 py-3 text-[11px] font-black tracking-wider transition-all relative ${
+            activeTab === 'analysis' ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+          }`}
+        >
+          ANALYSIS
+          {activeTab === 'analysis' && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-zinc-800 rounded-full" />}
+        </button>
+        <button
           onClick={() => setActiveTab('tools')}
           className={`flex-1 py-3 text-[11px] font-black tracking-wider transition-all relative ${
             activeTab === 'tools' ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
@@ -410,6 +561,8 @@ ${task.details ? `（${task.details}）` : ''}`}
       <div className="px-6 pb-6 flex-1 overflow-y-auto custom-scrollbar">
         {activeTab === 'workflow' ? (
           <WorkflowWizard task={task} onUpdateTask={onUpdateTask} />
+        ) : activeTab === 'analysis' ? (
+          <EvidenceAnalysis task={task} onUpdateTask={onUpdateTask} aiPersona={aiPersona} />
         ) : (
           <>
             <div className="mb-8">

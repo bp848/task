@@ -43,7 +43,7 @@ const App: React.FC = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
-  const [appSettings, setAppSettings] = useState<{ psychedelic_mode?: boolean }>({});
+  const [appSettings, setAppSettings] = useState<{ psychedelic_mode?: boolean; ai_persona?: string; auto_memo?: boolean }>({});
   const [clockTime, setClockTime] = useState(new Date());
 
   // Supabase-backed hooks
@@ -76,8 +76,8 @@ const App: React.FC = () => {
       if (session) {
         setIsGoogleConnected(true);
         // Load settings on session init
-        supabase.from('zenwork_settings').select('psychedelic_mode').eq('user_id', session.user.id).single()
-          .then(({ data }) => { if (data) setAppSettings({ psychedelic_mode: data.psychedelic_mode }); });
+        supabase.from('zenwork_settings').select('psychedelic_mode,ai_persona,auto_memo').eq('user_id', session.user.id).single()
+          .then(({ data }) => { if (data) setAppSettings({ psychedelic_mode: data.psychedelic_mode, ai_persona: data.ai_persona, auto_memo: data.auto_memo }); });
       }
       setLoading(false);
     }).catch((err) => {
@@ -282,7 +282,7 @@ const App: React.FC = () => {
       case 'habits':
         return <HabitsView session={session} />;
       case 'settings':
-        return <SettingsView session={session} onSettingsChange={(s) => setAppSettings({ psychedelic_mode: s.psychedelic_mode })} />;
+        return <SettingsView session={session} onSettingsChange={(s) => setAppSettings({ psychedelic_mode: s.psychedelic_mode, ai_persona: s.ai_persona, auto_memo: s.auto_memo })} />;
       default:
         return null;
     }
@@ -386,6 +386,8 @@ const App: React.FC = () => {
             targetDate={targetDate}
             onClose={() => setSelectedTaskId(null)}
             onUpdateTask={updateTask}
+            aiPersona={appSettings.ai_persona || 'polite'}
+            autoMemo={appSettings.auto_memo !== false}
           />
         </div>
       </main>
