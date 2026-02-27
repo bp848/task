@@ -1,26 +1,32 @@
+
 import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 
 interface SettingsViewProps {
   session: Session | null;
+  onSettingsChange?: (settings: Settings) => void;
 }
 
-interface Settings {
+export interface Settings {
   email_tone: string;
+  ai_persona: string;
   time_format: string;
   auto_memo: boolean;
   dark_mode: boolean;
+  psychedelic_mode: boolean;
 }
 
-const defaultSettings: Settings = {
+export const defaultSettings: Settings = {
   email_tone: 'polite',
+  ai_persona: 'polite',
   time_format: '24h',
   auto_memo: true,
   dark_mode: false,
+  psychedelic_mode: false,
 };
 
-const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }) => {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [saving, setSaving] = useState(false);
   const userId = session?.user?.id;
@@ -34,12 +40,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
       .single()
       .then(({ data }) => {
         if (data) {
-          setSettings({
-            email_tone: data.email_tone,
-            time_format: data.time_format,
-            auto_memo: data.auto_memo,
-            dark_mode: data.dark_mode,
-          });
+          const loaded: Settings = {
+            email_tone: data.email_tone ?? defaultSettings.email_tone,
+            ai_persona: data.ai_persona ?? defaultSettings.ai_persona,
+            time_format: data.time_format ?? defaultSettings.time_format,
+            auto_memo: data.auto_memo ?? defaultSettings.auto_memo,
+            dark_mode: data.dark_mode ?? defaultSettings.dark_mode,
+            psychedelic_mode: data.psychedelic_mode ?? defaultSettings.psychedelic_mode,
+          };
+          setSettings(loaded);
+          onSettingsChange?.(loaded);
         }
       });
   }, [userId]);
@@ -48,6 +58,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
     if (!userId) return;
     const updated = { ...settings, [key]: value };
     setSettings(updated);
+    onSettingsChange?.(updated);
     setSaving(true);
 
     await supabase
@@ -65,6 +76,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
     { value: 'polite', label: '極めて丁寧（対 橋本社長様用）' },
     { value: 'concise', label: '簡潔・事実のみ（社内共有用）' },
     { value: 'standard', label: '標準（プロジェクトメンバー用）' },
+  ];
+
+  const personaOptions = [
+    { value: 'polite', label: '標準（丁寧）', emoji: '🤖' },
+    { value: 'comedian', label: 'お笑い芸人風', emoji: '🎤' },
+    { value: 'cat', label: '猫風', emoji: '🐱' },
+    { value: 'dog', label: '犬風', emoji: '🐶' },
+    { value: 'newscaster', label: 'ニュースキャスター風', emoji: '📺' },
+    { value: 'auntie', label: '世話好きなおば様', emoji: '👵' },
+    { value: 'principal', label: '校長先生', emoji: '🎓' },
+    { value: 'classmate', label: '同級生', emoji: '🧑‍🤝‍🧑' },
+    { value: 'doraemon', label: '青いロボット猫', emoji: '🔵' },
+    { value: 'pikachu', label: '黄色いモンスター風', emoji: '⚡' },
   ];
 
   const timeOptions = [
@@ -94,14 +118,33 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
                        {toneOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                  </div>
-                 <div className="flex items-center justify-between p-5 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
-                    <span className="text-sm font-black text-zinc-700">証拠メモの自動解析</span>
-                    <button
-                      onClick={() => updateSetting('auto_memo', !settings.auto_memo)}
-                      className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${settings.auto_memo ? 'bg-zinc-800' : 'bg-zinc-100'}`}
-                    >
-                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.auto_memo ? 'right-1' : 'left-1'}`}></div>
-                    </button>
+
+                 <div className="p-5 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm font-black text-zinc-700">証拠メモの自動解析</span>
+                      <button
+                        onClick={() => updateSetting('auto_memo', !settings.auto_memo)}
+                        className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${settings.auto_memo ? 'bg-zinc-800' : 'bg-zinc-100'}`}
+                      >
+                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.auto_memo ? 'right-1' : 'left-1'}`}></div>
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {personaOptions.map(p => (
+                        <button
+                          key={p.value}
+                          onClick={() => updateSetting('ai_persona', p.value)}
+                          className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all text-center ${
+                            settings.ai_persona === p.value
+                              ? 'border-zinc-800 bg-zinc-50 shadow-md scale-105'
+                              : 'border-zinc-100 hover:border-zinc-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <span className="text-2xl mb-1">{p.emoji}</span>
+                          <span className="text-[10px] font-black text-zinc-600 leading-tight">{p.label}</span>
+                        </button>
+                      ))}
+                    </div>
                  </div>
               </div>
            </section>
@@ -116,6 +159,18 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session }) => {
                       className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${settings.dark_mode ? 'bg-zinc-800' : 'bg-zinc-100'}`}
                     >
                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.dark_mode ? 'right-1' : 'left-1'}`}></div>
+                    </button>
+                 </div>
+                 <div className="flex items-center justify-between p-5 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                    <div>
+                      <span className="text-sm font-black text-zinc-700">サイケデリック</span>
+                      <p className="text-[10px] text-zinc-400 font-bold mt-1">虹色・回転・グラデーション効果</p>
+                    </div>
+                    <button
+                      onClick={() => updateSetting('psychedelic_mode', !settings.psychedelic_mode)}
+                      className={`w-12 h-6 rounded-full relative shadow-inner transition-colors ${settings.psychedelic_mode ? 'bg-gradient-to-r from-pink-500 via-yellow-400 to-cyan-400' : 'bg-zinc-100'}`}
+                    >
+                       <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-md transition-all ${settings.psychedelic_mode ? 'right-1' : 'left-1'}`}></div>
                     </button>
                  </div>
                  <div className="flex items-center justify-between p-5 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">

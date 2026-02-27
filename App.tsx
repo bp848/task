@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [appSettings, setAppSettings] = useState<{ psychedelic_mode?: boolean }>({});
 
   // Supabase-backed hooks
   const {
@@ -73,6 +74,9 @@ const App: React.FC = () => {
       setSession(session);
       if (session) {
         setIsGoogleConnected(true);
+        // Load settings on session init
+        supabase.from('zenwork_settings').select('psychedelic_mode').eq('user_id', session.user.id).single()
+          .then(({ data }) => { if (data) setAppSettings({ psychedelic_mode: data.psychedelic_mode }); });
       }
       setLoading(false);
     }).catch((err) => {
@@ -271,7 +275,7 @@ const App: React.FC = () => {
       case 'habits':
         return <HabitsView session={session} />;
       case 'settings':
-        return <SettingsView session={session} />;
+        return <SettingsView session={session} onSettingsChange={(s) => setAppSettings({ psychedelic_mode: s.psychedelic_mode })} />;
       default:
         return null;
     }
@@ -307,7 +311,16 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-50/20 text-zinc-900 font-sans">
+    <div className={`flex h-screen bg-zinc-50/20 text-zinc-900 font-sans ${appSettings.psychedelic_mode ? 'psychedelic-mode' : ''}`}>
+      {appSettings.psychedelic_mode && (
+        <style>{`
+          @keyframes psyche-hue { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+          @keyframes psyche-bg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+          .psychedelic-mode { animation: psyche-hue 8s linear infinite; }
+          .psychedelic-mode main { background: linear-gradient(270deg, #ff6ec7, #7873f5, #4ade80, #facc15, #f87171, #a78bfa); background-size: 600% 600%; animation: psyche-bg 6s ease infinite; }
+          .psychedelic-mode header { backdrop-filter: blur(8px) saturate(200%); background: rgba(255,255,255,0.5) !important; }
+        `}</style>
+      )}
       <Sidebar
         currentView={currentView}
         selectedProjectId={selectedProjectId}
