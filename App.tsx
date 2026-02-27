@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [appSettings, setAppSettings] = useState<{ psychedelic_mode?: boolean }>({});
+  const [clockTime, setClockTime] = useState(new Date());
 
   // Supabase-backed hooks
   const {
@@ -103,6 +104,12 @@ const App: React.FC = () => {
       clearTimeout(timeout);
       subscription.unsubscribe();
     };
+  }, []);
+
+  // Real-time clock
+  useEffect(() => {
+    const id = window.setInterval(() => setClockTime(new Date()), 1000);
+    return () => clearInterval(id);
   }, []);
 
   // Fetch Google data when targetDate changes
@@ -359,7 +366,14 @@ const App: React.FC = () => {
                 <span className="text-[11px] font-black tracking-widest">時間計測中...</span>
               </div>
             )}
-            <div className="text-[11px] font-black text-zinc-200 tracking-widest uppercase">ZenWork Mini v2.0.0</div>
+            <div className="flex items-center space-x-3">
+              <div className="text-[11px] font-black text-zinc-400 tracking-wider">
+                {clockTime.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}
+              </div>
+              <div className="text-lg font-mono font-black text-zinc-800 tracking-tight tabular-nums">
+                {clockTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+            </div>
           </div>
         </header>
         <div className="flex-1 overflow-auto custom-scrollbar flex">

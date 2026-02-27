@@ -2,7 +2,32 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Task, Project } from '../../types';
 import GeminiSummary from '../GeminiSummary';
-import { commonTaskSuggestions } from '../../constants';
+import { commonTaskSuggestions, TASK_CATEGORY_KEYWORDS, SOFTWARE_LAUNCHERS } from '../../constants';
+
+// Extract categories and software from task title/details
+const extractCategories = (title: string, details?: string) => {
+  const text = `${title} ${details || ''}`;
+  const matched: { name: string; color: string; icon: string }[] = [];
+  for (const [name, cfg] of Object.entries(TASK_CATEGORY_KEYWORDS)) {
+    if (cfg.keywords.some(kw => text.includes(kw))) {
+      matched.push({ name, color: cfg.color, icon: cfg.icon });
+    }
+  }
+  return matched;
+};
+
+const extractSoftware = (title: string, details?: string) => {
+  const text = `${title} ${details || ''}`;
+  const matched: { name: string; protocol: string; icon: string }[] = [];
+  const seen = new Set<string>();
+  for (const [keyword, cfg] of Object.entries(SOFTWARE_LAUNCHERS)) {
+    if (text.includes(keyword) && !seen.has(cfg.name)) {
+      seen.add(cfg.name);
+      matched.push(cfg);
+    }
+  }
+  return matched;
+};
 
 // --- Celebration system ---
 const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '⭐', '🌟', '👏', '🙌', '💫'];
@@ -376,9 +401,11 @@ const TodayView: React.FC<TodayViewProps> = ({
     setIsBulkMode(false);
   };
 
-  // 未入力時は「非常に薄い赤」、入力済みは「緑」のボーダー
-  const getInputStyle = (val: string) => 
-    `transition-all duration-300 border-2 ${val.trim() ? 'border-zinc-700 bg-zinc-100/10' : 'border-zinc-100 bg-zinc-50/5'} focus:ring-4 focus:ring-opacity-20 ${val.trim() ? 'focus:ring-zinc-700' : 'focus:ring-zinc-200'}`;
+  // 必須フィールド=濃い青ボーダー、任意=薄い青ボーダー
+  const requiredInputStyle = (val: string) =>
+    `transition-all duration-300 border-2 ${val.trim() ? 'border-blue-600 bg-blue-50/10' : 'border-blue-400 bg-blue-50/5'} focus:ring-4 focus:ring-blue-200`;
+  const optionalInputStyle = (val: string) =>
+    `transition-all duration-300 border-2 ${val.trim() ? 'border-blue-400 bg-blue-50/10' : 'border-blue-200 bg-blue-50/5'} focus:ring-4 focus:ring-blue-100`;
 
   return (
     <div className="flex flex-col h-full bg-zinc-50/10 overflow-y-auto items-center py-8 px-4 pb-32">
@@ -437,7 +464,7 @@ const TodayView: React.FC<TodayViewProps> = ({
         <div className="bg-white rounded-3xl shadow-xl border-2 border-zinc-50 overflow-hidden">
           <div className="p-8 space-y-6">
              <div className="flex justify-between items-center mb-2">
-               <label className="text-[11px] font-black text-zinc-300 tracking-widest">新しいタスクの追加</label>
+               <label className="text-[11px] font-black text-blue-500 tracking-widest">新しいタスクの追加 <span className="text-blue-600">*必須</span></label>
                <button 
                  onClick={() => setIsBulkMode(!isBulkMode)} 
                  className="text-[10px] font-black text-zinc-400 hover:text-zinc-800 transition-all"
@@ -463,7 +490,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                      onChange={(e) => { setInputValue(e.target.value); setShowSuggestions(true); }}
                      onFocus={() => setShowSuggestions(true)}
                      placeholder="例: ZENBI 4月号 進行管理・校正依頼" 
-                     className={`w-full p-5 rounded-2xl outline-none text-xl font-black text-zinc-800 ${getInputStyle(inputValue)}`}
+                     className={`w-full p-5 rounded-2xl outline-none text-xl font-black text-zinc-800 ${requiredInputStyle(inputValue)}`}
                    />
                    {showSuggestions && filteredSuggestions.length > 0 && (
                      <div className="absolute left-0 right-0 top-full mt-3 bg-white border-2 border-zinc-50 rounded-2xl shadow-2xl z-50 py-3 overflow-hidden animate-in fade-in slide-in-from-top-2">
@@ -482,21 +509,21 @@ const TodayView: React.FC<TodayViewProps> = ({
                  </div>
                  <div className="flex space-x-4">
                     <div className="flex-1">
-                      <label className="text-[11px] font-black text-zinc-300 tracking-widest mb-2 block">顧客名</label>
+                      <label className="text-[11px] font-black text-blue-300 tracking-widest mb-2 block">顧客名 <span className="text-blue-200">任意</span></label>
                       <input 
                         value={customerInput} 
                         onChange={(e) => setCustomerInput(e.target.value)} 
                         placeholder="例: 全美" 
-                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${getInputStyle(customerInput)}`} 
+                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(customerInput)}`} 
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[11px] font-black text-zinc-300 tracking-widest mb-2 block">案件名</label>
+                      <label className="text-[11px] font-black text-blue-300 tracking-widest mb-2 block">案件名 <span className="text-blue-200">任意</span></label>
                       <input 
                         value={projectInput} 
                         onChange={(e) => setProjectInput(e.target.value)} 
                         placeholder="例: 4月号" 
-                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${getInputStyle(projectInput)}`} 
+                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(projectInput)}`} 
                       />
                     </div>
                  </div>
@@ -625,6 +652,23 @@ const TodayView: React.FC<TodayViewProps> = ({
                     {task.projectName && <span className="text-zinc-200 hidden sm:inline">|</span>}
                     {task.projectName && <span className="tracking-tighter">{task.projectName}</span>}
                   </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {extractCategories(task.title, task.details).map(cat => (
+                      <span key={cat.name} className="text-[9px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cat.color }}>
+                        {cat.icon} {cat.name}
+                      </span>
+                    ))}
+                    {extractSoftware(task.title, task.details).map(sw => (
+                      <a
+                        key={sw.name}
+                        href={sw.protocol}
+                        className="text-[9px] font-black px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors cursor-pointer"
+                        title={`${sw.name} を開く`}
+                      >
+                        {sw.icon} {sw.name}
+                      </a>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-4 sm:space-x-8 ml-2 sm:ml-8 shrink-0">
@@ -691,7 +735,52 @@ const TodayView: React.FC<TodayViewProps> = ({
         )}
       </div>
 
-      <div className="mt-20 w-full max-w-2xl">
+      {/* カテゴリ分析 */}
+      {filteredTasks.length > 0 && (() => {
+        const catStats: Record<string, { count: number; time: number; color: string; icon: string }> = {};
+        filteredTasks.forEach(t => {
+          extractCategories(t.title, t.details).forEach(cat => {
+            if (!catStats[cat.name]) catStats[cat.name] = { count: 0, time: 0, color: cat.color, icon: cat.icon };
+            catStats[cat.name].count++;
+            catStats[cat.name].time += t.timeSpent;
+          });
+        });
+        const entries = Object.entries(catStats).sort((a, b) => b[1].count - a[1].count);
+        if (entries.length === 0) return null;
+        const totalTime = entries.reduce((s, [, v]) => s + v.time, 0);
+        return (
+          <div className="mt-10 w-full max-w-3xl">
+            <h3 className="text-[11px] font-black text-zinc-400 tracking-widest mb-4 px-3">本日のカテゴリ分析</h3>
+            <div className="bg-white rounded-2xl border-2 border-zinc-100 p-5 shadow-sm">
+              <div className="flex flex-wrap gap-3 mb-4">
+                {entries.map(([name, stat]) => (
+                  <div key={name} className="flex items-center space-x-2 px-3 py-2 rounded-xl border" style={{ borderColor: stat.color + '40' }}>
+                    <span className="text-lg">{stat.icon}</span>
+                    <div>
+                      <div className="text-[11px] font-black" style={{ color: stat.color }}>{name}</div>
+                      <div className="text-[10px] text-zinc-400 font-bold">{stat.count}件 / {Math.floor(stat.time / 60)}分</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {totalTime > 0 && (
+                <div className="h-3 rounded-full overflow-hidden flex bg-zinc-100">
+                  {entries.map(([name, stat]) => (
+                    <div
+                      key={name}
+                      className="h-full transition-all"
+                      style={{ width: `${(stat.time / totalTime) * 100}%`, backgroundColor: stat.color }}
+                      title={`${name}: ${Math.floor(stat.time / 60)}分`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      <div className="mt-10 w-full max-w-2xl">
         <GeminiSummary tasks={tasks} targetDate={targetDate} />
       </div>
     </div>
