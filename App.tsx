@@ -62,13 +62,21 @@ const App: React.FC = () => {
 
   // Supabase Auth session management
   useEffect(() => {
+    // タイムアウト付きでセッション取得（5秒でフォールバック）
+    const timeout = setTimeout(() => {
+      console.warn('getSession timed out, showing login screen');
+      setLoading(false);
+    }, 5000);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      clearTimeout(timeout);
       setSession(session);
       if (session) {
         setIsGoogleConnected(true);
       }
       setLoading(false);
     }).catch((err) => {
+      clearTimeout(timeout);
       console.error('Failed to get session:', err);
       setLoading(false);
     });
@@ -87,7 +95,10 @@ const App: React.FC = () => {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Fetch Google data when targetDate changes
