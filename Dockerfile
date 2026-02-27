@@ -30,13 +30,12 @@ COPY --from=builder /app/dist ./dist
 
 # サーバーコードをコピー
 COPY server.ts ./
-
-# TypeScriptをJSにコンパイルするためtsxを使用
-RUN npm install -g tsx
+COPY tsconfig.json ./
 
 ENV NODE_ENV=production
 ENV PORT=8080
 
 EXPOSE 8080
 
-CMD ["tsx", "server.ts"]
+CMD ["npx", "tsx", "server.ts"]
+

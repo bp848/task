@@ -102,13 +102,9 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
             if (dateStr) {
               const [m, d] = dateStr.split('/');
               if (m && d) {
-                // Determine the year. If the month is less than the current month (e.g., it's Dec and we see Jan), it might be next year.
-                // For simplicity, we'll use the current year, but if you need cross-year support, you can adjust this logic.
                 let year = new Date().getFullYear();
                 const currentMonth = new Date().getMonth() + 1;
-                if (parseInt(m) < currentMonth - 6) { // Heuristic: if the month is far in the past, it's probably next year
-                  year++;
-                }
+                if (parseInt(m) < currentMonth - 6) year++;
                 const isoDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
                 currentDates[i] = isoDate;
               }
@@ -141,24 +137,13 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
                 title = cell.replace(/^学ぶこと、行うこと：/, '').trim();
               }
 
-              if (title === '学ぶこと、行うこと：' || title === '') {
-                continue;
-              }
+              if (title === '学ぶこと、行うこと：' || title === '') continue;
 
               let customerName = '';
               const customerMatch = title.match(/^(.+?)様/);
-              if (customerMatch) {
-                customerName = customerMatch[1];
-              }
+              if (customerMatch) customerName = customerMatch[1];
 
-              tasksToAdd.push({
-                title,
-                customerName,
-                startTime,
-                estimatedTime: 3600,
-                details,
-                date
-              });
+              tasksToAdd.push({ title, customerName, startTime, estimatedTime: 3600, details, date });
             }
           }
         }
@@ -185,17 +170,8 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
           let title = line.replace(/^[・\-•]\s*/, '').trim();
           let customerName = '';
           const customerMatch = title.match(/^(.+?)様/);
-          if (customerMatch) {
-            customerName = customerMatch[1];
-          }
-          currentTask = {
-            title,
-            customerName,
-            startTime: currentStartTime,
-            estimatedTime: currentEstimate,
-            details: '',
-            date: bulkTargetDate
-          };
+          if (customerMatch) customerName = customerMatch[1];
+          currentTask = { title, customerName, startTime: currentStartTime, estimatedTime: currentEstimate, details: '', date: bulkTargetDate };
         } else if (line.startsWith('（') || line.startsWith('(')) {
           if (currentTask) {
             const detailLine = line.replace(/^[（(]/, '').replace(/[）)]$/, '').trim();
@@ -212,57 +188,36 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
     }
 
     tasksToAdd.forEach(t => {
-      onAddTask(
-        t.title,
-        'p1',
-        [],
-        t.estimatedTime,
-        t.date,
-        t.startTime || undefined,
-        false,
-        t.customerName || undefined,
-        undefined,
-        t.details || undefined
-      );
+      onAddTask(t.title, 'p1', [], t.estimatedTime, t.date, t.startTime || undefined, false, t.customerName || undefined, undefined, t.details || undefined);
     });
 
     setBulkText('');
     setIsBulkMode(false);
   };
 
-  const getInputStyle = (val: string) =>
-    `transition-all duration-300 border-2 ${val?.trim() ? 'border-zinc-700 bg-zinc-100/20' : 'border-zinc-100 bg-zinc-50/5'} focus:ring-4 focus:ring-opacity-20 ${val?.trim() ? 'focus:ring-zinc-700' : 'focus:ring-zinc-200'}`;
-
   return (
     <div className="h-full bg-zinc-50/10 flex flex-col overflow-hidden border-t-2 border-zinc-100">
-      <div className="p-8 pb-0">
-        <header className="mb-6 flex justify-between items-end">
-          <div>
-            <h2 className="text-2xl font-black text-zinc-800 tracking-tight">週間プランナー</h2>
-            <p className="text-xs text-zinc-500 font-bold mt-1 uppercase tracking-widest">AIが最適なスケジュールを提案します</p>
-          </div>
-          <div className="flex space-x-3">
+      <div className="p-6 pb-0 flex-shrink-0">
+        <header className="mb-4 flex justify-between items-center">
+          <h2 className="text-base font-black text-zinc-800 tracking-tight">週間プランナー</h2>
+          <div className="flex space-x-2">
             <button
               onClick={() => setIsBulkMode(!isBulkMode)}
-              className="bg-white text-zinc-600 border-2 border-zinc-200 px-6 py-3 rounded-xl font-black text-sm shadow-sm hover:bg-zinc-50 transition-all"
+              className="bg-white text-zinc-600 border-2 border-zinc-200 px-4 py-2 rounded-xl font-black text-xs shadow-sm hover:bg-zinc-50 transition-all"
             >
               {isBulkMode ? '閉じる' : 'テキストから一括追加'}
-            </button>
-            <button className="bg-zinc-900 text-white px-6 py-3 rounded-xl font-black text-sm shadow-lg shadow-zinc-200 hover:bg-zinc-800 transition-all flex items-center space-x-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-              <span>AI自動スケジューリング</span>
             </button>
           </div>
         </header>
 
         {isBulkMode && (
-          <div className="mb-8 bg-white p-6 rounded-3xl border-2 border-zinc-200 shadow-lg animate-in fade-in slide-in-from-top-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-black text-zinc-800">テキストから一括追加</h3>
+          <div className="mb-4 bg-white p-5 rounded-2xl border-2 border-zinc-200 shadow-lg">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-black text-sm text-zinc-800">テキストから一括追加</h3>
               <select
                 value={bulkTargetDate}
                 onChange={e => setBulkTargetDate(e.target.value)}
-                className="bg-zinc-50 border-2 border-zinc-100 rounded-lg px-3 py-1.5 text-sm font-bold outline-none text-zinc-700"
+                className="bg-zinc-50 border border-zinc-200 rounded-lg px-2 py-1 text-xs font-bold outline-none text-zinc-700"
               >
                 {weekDays.map(d => {
                   const info = getDayInfo(d);
@@ -273,12 +228,12 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
             <textarea
               value={bulkText}
               onChange={e => setBulkText(e.target.value)}
-              placeholder="■13:00–13:15\n・GSX様依頼連絡\n（ご依頼に対するメールの返信）"
-              className="w-full p-4 rounded-xl outline-none text-sm font-black text-zinc-800 border-2 border-zinc-100 bg-zinc-50/5 focus:ring-4 focus:ring-zinc-200 min-h-[120px] mb-4"
+              placeholder="■13:00–13:15&#10;・GSX様依頼連絡&#10;（ご依頼に対するメールの返信）"
+              className="w-full p-3 rounded-xl outline-none text-xs font-bold text-zinc-800 border border-zinc-200 bg-zinc-50 min-h-[100px] mb-3"
             />
-            <div className="flex justify-end space-x-3">
-              <button onClick={() => setIsBulkMode(false)} className="px-6 py-2 rounded-xl font-black text-sm text-zinc-500 hover:bg-zinc-100">キャンセル</button>
-              <button onClick={handleBulkSubmit} disabled={!bulkText.trim()} className={`px-6 py-2 rounded-xl font-black text-sm shadow-md transition-all ${bulkText.trim() ? 'bg-zinc-800 text-white hover:bg-zinc-900' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}>追加する</button>
+            <div className="flex justify-end space-x-2">
+              <button onClick={() => setIsBulkMode(false)} className="px-4 py-2 rounded-xl font-black text-xs text-zinc-500 hover:bg-zinc-100">キャンセル</button>
+              <button onClick={handleBulkSubmit} disabled={!bulkText.trim()} className={`px-4 py-2 rounded-xl font-black text-xs transition-all ${bulkText.trim() ? 'bg-zinc-800 text-white hover:bg-zinc-900' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}>追加する</button>
             </div>
           </div>
         )}
@@ -295,58 +250,49 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
           const currentInput = inlineInputs[date] || '';
 
           return (
-            <div key={date} className={`min-w-[320px] border-r-2 border-zinc-100 flex flex-col h-full transition-all ${isToday ? 'bg-white shadow-2xl z-10 relative ring-4 ring-zinc-800/5' : ''}`}>
-              {/* 日付ヘッダー・進捗: 固定 */}
-              <div className="flex-shrink-0 p-6 pb-0">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-baseline space-x-3">
-                    <span className={`text-3xl font-black ${isToday ? 'text-zinc-900' : 'text-zinc-800'}`}>{month}/{dateNum}</span>
-                    <span className="text-xs font-black text-zinc-400 tracking-widest">{day}曜</span>
+            <div key={date} className={`min-w-[160px] border-r border-zinc-100 flex flex-col h-full ${isToday ? 'bg-white shadow-lg z-10 relative' : ''}`}>
+              {/* 日付ヘッダー */}
+              <div className="flex-shrink-0 px-2 pt-2 pb-1">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-baseline space-x-1">
+                    <span className={`text-sm font-black ${isToday ? 'text-zinc-900' : 'text-zinc-600'}`}>{month}/{dateNum}</span>
+                    <span className="text-[10px] font-bold text-zinc-400">{day}</span>
                   </div>
-                  {isToday && <span className="text-[11px] font-black bg-zinc-800 text-white px-4 py-1.5 rounded-full tracking-widest shadow-lg shadow-zinc-100">今日</span>}
+                  {isToday && <span className="text-[8px] font-black bg-zinc-800 text-white px-1.5 py-0.5 rounded-full">今日</span>}
                 </div>
-                <div className="mb-4">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-[11px] font-black text-zinc-300 tracking-[0.2em]">進捗</span>
-                    <span className="text-sm font-black text-zinc-800">{Math.round(progress)}%</span>
-                  </div>
-                  <div className="h-2 bg-zinc-50 rounded-full overflow-hidden border border-zinc-100">
-                    <div className="h-full bg-zinc-800 transition-all duration-1000" style={{ width: `${progress}%` }}></div>
-                  </div>
+                <div className="h-0.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-zinc-600 transition-all duration-700" style={{ width: `${progress}%` }} />
                 </div>
               </div>
 
-              {/* タスクリスト: スクロール */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-6 py-4 space-y-3">
+              {/* タスクリスト */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-1.5 py-1 space-y-1">
                 {dayTasks.length > 0 ? (
                   dayTasks.map(t => (
-                    <div key={t.id} className={`p-4 rounded-2xl border-2 transition-all ${t.completed ? 'bg-zinc-50 border-zinc-100 text-zinc-400 opacity-60' : 'bg-white border-zinc-200 text-zinc-700 shadow-md hover:border-zinc-400 hover:shadow-xl'}`}>
-                      <div className="font-black text-sm mb-2 leading-tight">{t.title}</div>
-                      <div className="flex justify-between items-center text-[10px] font-black text-zinc-400 tracking-widest">
-                        <span className="bg-zinc-50 text-zinc-400 px-3 py-1 rounded-full border border-zinc-100">{t.startTime || '予定なし'}</span>
-                        {t.customerName && <span className="text-zinc-800 font-black">@{t.customerName}</span>}
-                      </div>
+                    <div key={t.id} className={`px-1.5 py-1 rounded-md border transition-all ${t.completed ? 'bg-zinc-50 border-zinc-100 opacity-40' : 'bg-white border-zinc-200 hover:border-zinc-400'}`}>
+                      {t.startTime && (
+                        <div className="text-[10px] font-black text-zinc-800 leading-none mb-0.5">{t.startTime}</div>
+                      )}
+                      <div className={`text-[11px] font-medium leading-tight ${t.completed ? 'text-zinc-400 line-through' : 'text-zinc-700'}`}>{t.title}</div>
+                      {t.customerName && <div className="text-[9px] text-zinc-400 mt-0.5 truncate">@{t.customerName}</div>}
                     </div>
                   ))
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center border-4 border-dashed border-zinc-100 rounded-[3rem] py-10 opacity-30">
-                    <svg className="w-10 h-10 mb-3 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2.5" /></svg>
-                    <span className="text-[11px] font-black tracking-[0.3em] text-zinc-300">予定なし</span>
+                  <div className="flex items-center justify-center py-4 opacity-20">
+                    <svg className="w-4 h-4 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2.5" /></svg>
                   </div>
                 )}
               </div>
 
-              {/* 入力欄: 固定 */}
-              <div className="flex-shrink-0 p-4 border-t-2 border-zinc-50">
-                <div className="relative">
-                  <input
-                    value={currentInput}
-                    onChange={(e) => setInlineInputs({ ...inlineInputs, [date]: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && handleInlineAdd(date)}
-                    placeholder="Enterで追加..."
-                    className={`w-full text-sm p-4 rounded-2xl outline-none transition-all font-black placeholder:text-zinc-300 shadow-inner ${getInputStyle(currentInput)}`}
-                  />
-                </div>
+              {/* 入力欄 */}
+              <div className="flex-shrink-0 px-1.5 py-1.5 border-t border-zinc-100">
+                <input
+                  value={currentInput}
+                  onChange={(e) => setInlineInputs({ ...inlineInputs, [date]: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && handleInlineAdd(date)}
+                  placeholder="+"
+                  className="w-full text-xs p-1 rounded outline-none border border-zinc-100 bg-zinc-50 placeholder:text-zinc-300 font-bold focus:border-zinc-400 transition-all"
+                />
               </div>
             </div>
           );

@@ -10,7 +10,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     // Navigator LockManager タイムアウトバグを回避するフォールバック
-    lock: async (name: string, acquireTimeout: number, fn: () => Promise<unknown>) => {
+    lock: async <R>(name: string, acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
       return fn();
     },
   },
