@@ -49,6 +49,7 @@ const App: React.FC = () => {
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
   const [appSettings, setAppSettings] = useState<{ psychedelic_mode?: boolean; ai_persona?: string; auto_memo?: boolean }>({});
   const [clockTime, setClockTime] = useState(new Date());
+  const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
 
   // Supabase-backed hooks
   const {
@@ -82,6 +83,8 @@ const App: React.FC = () => {
         // Load settings on session init
         supabase.from('zenwork_settings').select('psychedelic_mode,ai_persona,auto_memo').eq('user_id', session.user.id).single()
           .then(({ data }) => { if (data) setAppSettings({ psychedelic_mode: data.psychedelic_mode, ai_persona: data.ai_persona, auto_memo: data.auto_memo }); });
+        supabase.from('customers').select('customer_name').not('customer_name', 'is', null).order('customer_name')
+          .then(({ data }) => { if (data) setCustomerSuggestions(data.map((r: { customer_name: string }) => r.customer_name).filter(Boolean)); });
       }
       setLoading(false);
     }).catch((err) => {
@@ -270,6 +273,7 @@ const App: React.FC = () => {
             onToggleTimer={toggleTimer}
             targetDate={targetDate}
             setTargetDate={setTargetDate}
+            customerSuggestions={customerSuggestions}
           />
         );
       case 'inbox':

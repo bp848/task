@@ -216,6 +216,7 @@ interface TodayViewProps {
   onToggleTimer: (id: string) => void;
   targetDate: string;
   setTargetDate: (date: string) => void;
+  customerSuggestions?: string[];
 }
 
 const formatStopwatch = (seconds: number) => {
@@ -225,14 +226,15 @@ const formatStopwatch = (seconds: number) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
-const TodayView: React.FC<TodayViewProps> = ({ 
-  tasks, projects, onAddTask, onToggleTask, activeTaskId, onToggleTimer, targetDate, selectedTaskId, onSelectTask, onUpdateTask
+const TodayView: React.FC<TodayViewProps> = ({
+  tasks, projects, onAddTask, onToggleTask, activeTaskId, onToggleTimer, targetDate, selectedTaskId, onSelectTask, onUpdateTask, customerSuggestions = []
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [customerInput, setCustomerInput] = useState('');
   const [projectInput, setProjectInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [showRoutines, setShowRoutines] = useState(true);
@@ -283,10 +285,34 @@ const TodayView: React.FC<TodayViewProps> = ({
     setRoutineFreqPicker(null);
   };
 
+  // 過去のタスク名からユニーク候補を生成
+  const pastTaskTitles = useMemo(() => {
+    const seen = new Set<string>();
+    return tasks
+      .map(t => t.title)
+      .filter(title => {
+        const key = title.trim().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 100);
+  }, [tasks]);
+
   const filteredSuggestions = useMemo(() => {
     if (!inputValue.trim()) return [];
-    return commonTaskSuggestions.filter(s => s.toLowerCase().includes(inputValue.toLowerCase()));
-  }, [inputValue]);
+    const q = inputValue.toLowerCase();
+    const pastMatches = pastTaskTitles.filter(s => s.toLowerCase().includes(q));
+    const staticMatches = commonTaskSuggestions.filter(s => s.toLowerCase().includes(q) && !pastMatches.some(p => p.toLowerCase() === s.toLowerCase()));
+    return [...pastMatches.slice(0, 8), ...staticMatches.slice(0, 3)];
+  }, [inputValue, pastTaskTitles]);
+
+  // 顧客名フィルタリング
+  const filteredCustomers = useMemo(() => {
+    if (!customerInput.trim()) return customerSuggestions.slice(0, 10);
+    const q = customerInput.toLowerCase();
+    return customerSuggestions.filter(c => c.toLowerCase().includes(q)).slice(0, 10);
+  }, [customerInput, customerSuggestions]);
 
   const filteredTasks = useMemo(() => {
     let list = tasks.filter(t => t.date === targetDate);
@@ -427,7 +453,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                 <div className="text-6xl font-mono font-black tracking-tighter mb-6">{formatStopwatch(activeTask.timeSpent)}</div>
                 <button 
                   onClick={() => onToggleTimer(activeTask.id)}
-                  className="bg-zinc-900 hover:bg-zinc-900 text-white px-10 py-4 rounded-2xl font-black text-base transition-all shadow-xl shadow-zinc-950/40 active:scale-95"
+                  className="bg-white text-zinc-900 hover:bg-red-600 hover:text-white px-10 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 cursor-pointer border-2 border-zinc-700 hover:border-red-600"
                 >
                   計測ストップ
                 </button>
@@ -443,9 +469,9 @@ const TodayView: React.FC<TodayViewProps> = ({
           <div className="p-8 space-y-6">
              <div className="flex justify-between items-center mb-2">
                <label className="text-[11px] font-black text-blue-500 tracking-widest">新しいタスクの追加 <span className="text-blue-600">*必須</span></label>
-               <button 
-                 onClick={() => setIsBulkMode(!isBulkMode)} 
-                 className="text-[10px] font-black text-zinc-400 hover:text-zinc-800 transition-all"
+               <button
+                 onClick={() => setIsBulkMode(!isBulkMode)}
+                 className="text-[10px] font-black text-zinc-600 bg-zinc-100 hover:bg-zinc-800 hover:text-white px-3 py-1.5 rounded-full transition-all cursor-pointer border border-zinc-200 hover:border-zinc-800"
                >
                  {isBulkMode ? '通常入力に戻す' : 'テキストから一括追加'}
                </button>
@@ -471,37 +497,59 @@ const TodayView: React.FC<TodayViewProps> = ({
                      className={`w-full p-5 rounded-2xl outline-none text-xl font-black text-zinc-800 ${requiredInputStyle(inputValue)}`}
                    />
                    {showSuggestions && filteredSuggestions.length > 0 && (
-                     <div className="absolute left-0 right-0 top-full mt-3 bg-white border-2 border-zinc-50 rounded-2xl shadow-2xl z-50 py-3 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                       {filteredSuggestions.map((s, i) => (
-                         <button
-                           key={i}
-                           className="w-full text-left px-6 py-4 text-sm text-zinc-700 hover:bg-zinc-50 font-black border-b border-zinc-50 last:border-0 flex justify-between items-center"
-                           onClick={() => { setInputValue(s); setShowSuggestions(false); }}
-                         >
-                           <span>{s}</span>
-                           <span className="text-[10px] bg-zinc-100 text-zinc-900 px-3 py-1 rounded-full">AI予測</span>
-                         </button>
-                       ))}
+                     <div className="absolute left-0 right-0 top-full mt-3 bg-white border-2 border-zinc-50 rounded-2xl shadow-2xl z-50 py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                       {filteredSuggestions.map((s, i) => {
+                         const isPast = pastTaskTitles.some(p => p === s);
+                         return (
+                           <button
+                             key={i}
+                             className="w-full text-left px-6 py-3.5 text-sm text-zinc-700 hover:bg-zinc-50 font-black border-b border-zinc-50 last:border-0 flex justify-between items-center"
+                             onClick={() => { setInputValue(s); setShowSuggestions(false); }}
+                           >
+                             <span className="truncate mr-3">{s}</span>
+                             <span className={`text-[10px] px-3 py-1 rounded-full shrink-0 font-black ${isPast ? 'bg-blue-50 text-blue-600' : 'bg-zinc-100 text-zinc-500'}`}>
+                               {isPast ? '過去入力' : 'テンプレ'}
+                             </span>
+                           </button>
+                         );
+                       })}
                      </div>
                    )}
                  </div>
                  <div className="flex space-x-4">
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
                       <label className="text-[11px] font-black text-blue-300 tracking-widest mb-2 block">顧客名 <span className="text-blue-200">任意</span></label>
-                      <input 
-                        value={customerInput} 
-                        onChange={(e) => setCustomerInput(e.target.value)} 
-                        placeholder="例: 全美" 
-                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(customerInput)}`} 
+                      <input
+                        value={customerInput}
+                        onChange={(e) => { setCustomerInput(e.target.value); setShowCustomerSuggestions(true); }}
+                        onFocus={() => setShowCustomerSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 200)}
+                        placeholder="例: 全美"
+                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(customerInput)}`}
                       />
+                      {showCustomerSuggestions && filteredCustomers.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-2 bg-white border-2 border-zinc-100 rounded-2xl shadow-2xl z-50 py-2 max-h-[200px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
+                          {filteredCustomers.map((c, i) => (
+                            <button
+                              key={i}
+                              className="w-full text-left px-5 py-2.5 text-xs text-zinc-700 hover:bg-blue-50 font-black flex justify-between items-center"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => { setCustomerInput(c); setShowCustomerSuggestions(false); }}
+                            >
+                              <span className="truncate">{c}</span>
+                              <span className="text-[9px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full shrink-0 ml-2">顧客DB</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <label className="text-[11px] font-black text-blue-300 tracking-widest mb-2 block">案件名 <span className="text-blue-200">任意</span></label>
-                      <input 
-                        value={projectInput} 
-                        onChange={(e) => setProjectInput(e.target.value)} 
-                        placeholder="例: 4月号" 
-                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(projectInput)}`} 
+                      <input
+                        value={projectInput}
+                        onChange={(e) => setProjectInput(e.target.value)}
+                        placeholder="例: 4月号"
+                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(projectInput)}`}
                       />
                     </div>
                  </div>
@@ -519,7 +567,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                <button 
                  onClick={handleBulkSubmit} 
                  disabled={!bulkText.trim()}
-                 className={`px-10 py-3.5 rounded-2xl text-sm font-black shadow-xl transition-all active:scale-95 ${bulkText.trim() ? 'bg-zinc-800 text-white hover:bg-zinc-900 shadow-zinc-200' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
+                 className={`px-10 py-3.5 rounded-2xl text-sm font-black shadow-xl transition-all active:scale-95 cursor-pointer ${bulkText.trim() ? 'bg-zinc-800 text-white hover:bg-blue-600 shadow-zinc-200' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
                >
                  一括追加
                </button>
@@ -527,7 +575,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                <button 
                  onClick={handleAddTask} 
                  disabled={!inputValue.trim()}
-                 className={`px-10 py-3.5 rounded-2xl text-sm font-black shadow-xl transition-all active:scale-95 ${inputValue.trim() ? 'bg-zinc-800 text-white hover:bg-zinc-900 shadow-zinc-200' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
+                 className={`px-10 py-3.5 rounded-2xl text-sm font-black shadow-xl transition-all active:scale-95 cursor-pointer ${inputValue.trim() ? 'bg-zinc-800 text-white hover:bg-blue-600 shadow-zinc-200' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
                >
                  タスクを追加
                </button>
@@ -559,7 +607,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                     className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl border-2 text-[11px] font-black transition-all active:scale-95 ${
                       alreadyAdded
                         ? 'border-zinc-100 bg-zinc-50 text-zinc-300 cursor-default'
-                        : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-400 hover:shadow-md shadow-sm'
+                        : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-800 hover:text-white hover:border-zinc-800 hover:shadow-md shadow-sm cursor-pointer'
                     }`}
                   >
                     {alreadyAdded ? (
@@ -611,22 +659,22 @@ const TodayView: React.FC<TodayViewProps> = ({
               <div className="flex items-center w-full">
                 <button
                   onClick={() => handleToggleWithCelebration(task.id)}
-                  className={`w-8 h-8 rounded-2xl border-4 flex items-center justify-center shrink-0 mr-4 sm:mr-6 transition-all ${
+                  className={`w-8 h-8 rounded-2xl border-4 flex items-center justify-center shrink-0 mr-4 sm:mr-6 transition-all cursor-pointer ${
                     task.completed
                       ? `text-white shadow-lg ${isRainbow ? 'rainbow-check-done' : 'bg-zinc-800 border-zinc-800'}`
-                      : `hover:border-zinc-800 ${isRainbow ? 'rainbow-check' : 'border-zinc-200'}`
+                      : `hover:border-zinc-800 hover:bg-zinc-100 hover:scale-110 ${isRainbow ? 'rainbow-check' : 'border-zinc-300'}`
                   }`}
                 >
                   {task.completed && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="4"/></svg>}
                 </button>
                 
-                <div 
-                  className="flex-1 min-w-0 cursor-pointer group"
+                <div
+                  className="flex-1 min-w-0 cursor-pointer group hover:bg-zinc-100 rounded-xl px-2 py-1 -mx-2 -my-1 transition-all"
                   onClick={() => onSelectTask(task.id)}
                 >
                   <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
                     {task.startTime && <span className="text-[10px] bg-zinc-800 text-white px-2 sm:px-3 py-1 rounded-full font-black tracking-tighter shadow-sm whitespace-nowrap">{task.startTime}</span>}
-                    <span className={`text-base sm:text-lg font-black truncate group-hover:text-zinc-500 transition-colors ${task.completed ? 'line-through text-zinc-400' : 'text-zinc-800'}`}>{task.title}</span>
+                    <span className={`text-base sm:text-lg font-black truncate group-hover:text-blue-600 transition-colors ${task.completed ? 'line-through text-zinc-400' : 'text-zinc-800'}`}>{task.title}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] font-black text-zinc-400">
                     {task.customerName && <span className="text-zinc-400 tracking-tighter">@{task.customerName}</span>}
@@ -643,7 +691,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                       <a
                         key={sw.name}
                         href={sw.protocol}
-                        className="text-[9px] font-black px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors cursor-pointer"
+                        className="text-[9px] font-black px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white transition-all cursor-pointer"
                         title={`${sw.name} を開く`}
                       >
                         {sw.icon} {sw.name}
@@ -660,7 +708,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                   {!task.completed && (
                     <button 
                       onClick={() => onToggleTimer(task.id)}
-                      className={`w-10 h-10 sm:w-14 sm:h-14 rounded-2xl sm:rounded-3xl flex items-center justify-center transition-all shadow-xl active:scale-90 border-2 ${isActive ? 'bg-white text-zinc-800 border-zinc-800 shadow-zinc-100' : 'bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-900 shadow-zinc-200'}`}
+                      className={`w-10 h-10 sm:w-14 sm:h-14 rounded-2xl sm:rounded-3xl flex items-center justify-center transition-all shadow-xl active:scale-90 border-2 cursor-pointer ${isActive ? 'bg-white text-zinc-800 border-zinc-800 shadow-zinc-100 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-blue-600 hover:border-blue-600 border-zinc-900 shadow-zinc-200'}`}
                     >
                       {isActive ? (
                         <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -675,13 +723,13 @@ const TodayView: React.FC<TodayViewProps> = ({
               {/* 展開される詳細エリア */}
               {isSelected && (
                 <div className="mt-4 pt-4 border-t-2 border-zinc-200 animate-in fade-in slide-in-from-top-2">
-                  <div className="bg-blue-50/30 rounded-2xl p-4 border border-blue-100">
-                    <h4 className="text-[10px] font-black text-blue-500 tracking-widest mb-2">プロセス・詳細メモ</h4>
+                  <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
+                    <h4 className="text-[10px] font-black text-blue-600 tracking-widest mb-2">プロセス・詳細メモ</h4>
                     <textarea
                       value={task.details || ''}
                       onChange={(e) => onUpdateTask(task.id, { details: e.target.value })}
                       placeholder="タスクの詳細やプロセスを入力..."
-                      className="w-full bg-white border-2 border-zinc-100 rounded-xl p-3 text-sm font-medium text-zinc-700 outline-none focus:border-zinc-300 min-h-[80px] resize-y"
+                      className="w-full bg-white border-2 border-blue-200 rounded-xl p-3 text-sm font-bold text-zinc-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 min-h-[80px] resize-y placeholder:text-zinc-400"
                     />
                     <div className="mt-3 flex justify-between items-center">
                        <div className="text-left sm:hidden">
@@ -693,21 +741,21 @@ const TodayView: React.FC<TodayViewProps> = ({
                            <div className="flex items-center gap-2 ml-auto animate-in fade-in">
                              <span className="text-[10px] font-black text-zinc-500">頻度:</span>
                              {[
-                               { label: '毎日', value: 'daily', icon: '&#9728;' },
-                               { label: '毎週', value: 'weekly', icon: '&#128197;' },
-                               { label: '毎月', value: 'monthly', icon: '&#128198;' },
+                               { label: '毎日', value: 'daily', color: 'bg-blue-600 hover:bg-blue-700' },
+                               { label: '毎週', value: 'weekly', color: 'bg-green-600 hover:bg-green-700' },
+                               { label: '毎月', value: 'monthly', color: 'bg-purple-600 hover:bg-purple-700' },
                              ].map(f => (
                                <button
                                  key={f.value}
                                  onClick={() => handleSaveAsRoutine(task.id, f.value)}
-                                 className="px-3 py-1.5 text-[10px] font-black bg-zinc-800 text-white rounded-full hover:bg-zinc-700 transition-all"
+                                 className={`px-4 py-1.5 text-[10px] font-black text-white rounded-full ${f.color} transition-all active:scale-95 shadow-sm cursor-pointer`}
                                >
                                  {f.label}
                                </button>
                              ))}
                              <button
                                onClick={() => setRoutineFreqPicker(null)}
-                               className="text-[10px] text-zinc-400 hover:text-zinc-600 font-black"
+                               className="text-[10px] text-zinc-400 hover:text-red-500 hover:bg-red-50 px-2 py-1 rounded-full font-black transition-all cursor-pointer"
                              >
                                Cancel
                              </button>
@@ -715,7 +763,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                          ) : (
                            <button
                              onClick={() => setRoutineFreqPicker(task.id)}
-                             className="text-[10px] font-black text-zinc-500 hover:text-zinc-800 transition-all flex items-center space-x-1 ml-auto"
+                             className="text-[10px] font-black text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-full transition-all flex items-center space-x-1.5 ml-auto border-2 border-blue-200 hover:border-blue-600 cursor-pointer active:scale-95 shadow-sm"
                            >
                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                              <span>定型タスクとして保存</span>
@@ -818,7 +866,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                   const color = CUST_COLORS[i % CUST_COLORS.length];
                   return (
                     <details key={name} className="group">
-                      <summary className="flex items-center gap-3 cursor-pointer list-none">
+                      <summary className="flex items-center gap-3 cursor-pointer list-none hover:bg-zinc-50 rounded-xl px-2 py-1.5 transition-all">
                         <div className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-black text-zinc-800">{name}</div>

@@ -73,10 +73,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
                     onViewChange(item.id as ViewType);
                     if (window.innerWidth < 768) toggleSidebar();
                   }}
-                  className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-all ${
-                    currentView === item.id 
-                      ? 'bg-zinc-800 text-white shadow-lg shadow-zinc-200' 
-                      : 'text-zinc-600 hover:bg-zinc-100/50'
+                  className={`w-full flex items-center px-3 py-2.5 rounded-xl transition-all cursor-pointer ${
+                    currentView === item.id
+                      ? 'bg-zinc-800 text-white shadow-lg shadow-zinc-200'
+                      : 'text-zinc-600 hover:bg-zinc-800 hover:text-white'
                   }`}
                 >
                   <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,10 +99,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
                         onViewChange('project-detail', p.id);
                         if (window.innerWidth < 768) toggleSidebar();
                       }}
-                      className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all ${
+                      className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
                         currentView === 'project-detail' && selectedProjectId === p.id
-                          ? 'bg-zinc-50 text-zinc-900 font-bold border border-zinc-100'
-                          : 'text-zinc-600 hover:bg-zinc-50'
+                          ? 'bg-zinc-800 text-white font-bold'
+                          : 'text-zinc-600 hover:bg-zinc-700 hover:text-white'
                       }`}
                     >
                       <div className={`w-2 h-2 rounded-full ${p.color} mr-3`}></div>
