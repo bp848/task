@@ -180,17 +180,20 @@ const App: React.FC = () => {
     }
   };
 
-  // Timer: increment local time_spent every second, sync to DB periodically
-  const activeTimeRef = useRef<number>(0);
+  // Timer: Date.now()ベースで正確に計測（バックグラウンドタブでも正確）
+  const timerStartRef = useRef<number>(0);
+  const baseTimeRef = useRef<number>(0);
   useEffect(() => {
     let interval: number;
     if (activeTaskId) {
       const task = tasks.find(t => t.id === activeTaskId);
-      if (task) activeTimeRef.current = task.timeSpent;
+      baseTimeRef.current = task ? task.timeSpent : 0;
+      timerStartRef.current = Date.now();
 
       interval = window.setInterval(() => {
-        activeTimeRef.current += 1;
-        syncTimeSpent(activeTaskId, activeTimeRef.current);
+        const elapsed = Math.floor((Date.now() - timerStartRef.current) / 1000);
+        const total = baseTimeRef.current + elapsed;
+        syncTimeSpent(activeTaskId, total);
       }, 1000);
     }
     return () => clearInterval(interval);

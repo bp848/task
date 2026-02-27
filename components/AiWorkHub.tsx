@@ -12,17 +12,20 @@ interface AiWorkHubProps {
 
 type ToolType = 'gmail' | 'sheets' | 'slack' | 'drive' | null;
 
-const getTimeSlot = (startTime?: string, estimatedTime?: number): string => {
-  if (!startTime) return '??:??–??:??';
+const getEndTime = (startTime: string, seconds: number): string => {
   const [h, m] = startTime.split(':').map(Number);
-  let endTime = '??:??';
-  if (estimatedTime) {
-    const totalMins = h * 60 + m + Math.floor(estimatedTime / 60);
-    const eh = Math.floor(totalMins / 60) % 24;
-    const em = totalMins % 60;
-    endTime = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
-  }
-  return `${startTime}–${endTime}`;
+  const totalMins = h * 60 + m + Math.ceil(seconds / 60);
+  const eh = Math.floor(totalMins / 60) % 24;
+  const em = totalMins % 60;
+  return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+};
+
+const getTimeSlot = (startTime?: string, timeSpent?: number, estimatedTime?: number): string => {
+  if (!startTime) return '??:??–??:??';
+  // 実績(timeSpent)があればそちらを使う、なければ見積(estimatedTime)
+  const duration = (timeSpent && timeSpent > 0) ? timeSpent : (estimatedTime || 0);
+  if (!duration) return `${startTime}–??:??`;
+  return `${startTime}–${getEndTime(startTime, duration)}`;
 };
 
 const buildTimeGroupedTaskList = (tasks: Task[]): string => {
@@ -30,12 +33,14 @@ const buildTimeGroupedTaskList = (tasks: Task[]): string => {
   tasks.forEach(t => {
     const start = t.startTime || '??:??';
     let end = t.endTime;
-    if (!end && t.startTime && t.estimatedTime) {
-      const [h, m] = t.startTime.split(':').map(Number);
-      const totalMins = h * 60 + m + Math.floor(t.estimatedTime / 60);
-      const eh = Math.floor(totalMins / 60) % 24;
-      const em = totalMins % 60;
-      end = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+    if (!end && t.startTime) {
+      // 実績(timeSpent)優先、なければ見積(estimatedTime)
+      const duration = (t.timeSpent && t.timeSpent > 0) ? t.timeSpent : (t.estimatedTime || 0);
+      if (duration > 0) {
+        end = getEndTime(t.startTime, duration);
+      } else {
+        end = '??:??';
+      }
     } else if (!end) {
       end = '??:??';
     }
@@ -118,7 +123,7 @@ CSGの三神です。
 
 ${task.title}の報告です。
 
-${timeGroupedList ? timeGroupedList : `■${task.startTime || '??:??'}–${getTimeSlot(task.startTime, task.estimatedTime).split('–')[1]}
+${timeGroupedList ? timeGroupedList : `■${task.startTime || '??:??'}–${getTimeSlot(task.startTime, task.timeSpent, task.estimatedTime).split('–')[1]}
 ・${task.title}
 ${task.details ? `（${task.details}）` : ''}`}
 
@@ -137,7 +142,7 @@ CSGの三神です。
 
 ${timeRange}の業務進捗をご報告いたします。
 
-${timeGroupedList ? timeGroupedList : `■${task.startTime || '??:??'}–${getTimeSlot(task.startTime, task.estimatedTime).split('–')[1]}
+${timeGroupedList ? timeGroupedList : `■${task.startTime || '??:??'}–${getTimeSlot(task.startTime, task.timeSpent, task.estimatedTime).split('–')[1]}
 ・${task.title}
 ${task.details ? `（${task.details}）` : ''}`}
 
