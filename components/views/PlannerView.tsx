@@ -48,11 +48,11 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
       let currentRow: string[] = [];
       let currentCell = '';
       let inQuotes = false;
-      
+
       for (let i = 0; i < bulkText.length; i++) {
         const char = bulkText[i];
-        const nextChar = bulkText[i+1];
-        
+        const nextChar = bulkText[i + 1];
+
         if (inQuotes) {
           if (char === '"' && nextChar === '"') {
             currentCell += '"';
@@ -90,9 +90,9 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
 
       for (const row of rows) {
         if (!row || row.length === 0) continue;
-        
+
         const rowHeader = row[0].trim();
-        
+
         if (rowHeader === '朝') {
           currentDates = [];
           amCount = 0;
@@ -125,14 +125,14 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
           } else if (rowHeader === '夜') {
             startTime = '18:00';
           }
-          
+
           for (let i = 1; i < row.length; i++) {
             const cell = row[i]?.trim();
             const date = currentDates[i];
             if (cell && date) {
               let title = cell;
               let details = '';
-              
+
               if (cell.includes('\n')) {
                 const lines = cell.split('\n');
                 title = lines[0].replace(/^学ぶこと、行うこと：/, '').trim();
@@ -140,17 +140,17 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
               } else {
                 title = cell.replace(/^学ぶこと、行うこと：/, '').trim();
               }
-              
+
               if (title === '学ぶこと、行うこと：' || title === '') {
-                 continue;
+                continue;
               }
-              
+
               let customerName = '';
               const customerMatch = title.match(/^(.+?)様/);
               if (customerMatch) {
                 customerName = customerMatch[1];
               }
-              
+
               tasksToAdd.push({
                 title,
                 customerName,
@@ -230,7 +230,7 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
     setIsBulkMode(false);
   };
 
-  const getInputStyle = (val: string) => 
+  const getInputStyle = (val: string) =>
     `transition-all duration-300 border-2 ${val?.trim() ? 'border-zinc-700 bg-zinc-100/20' : 'border-zinc-100 bg-zinc-50/5'} focus:ring-4 focus:ring-opacity-20 ${val?.trim() ? 'focus:ring-zinc-700' : 'focus:ring-zinc-200'}`;
 
   return (
@@ -242,8 +242,8 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
             <p className="text-xs text-zinc-500 font-bold mt-1 uppercase tracking-widest">AIが最適なスケジュールを提案します</p>
           </div>
           <div className="flex space-x-3">
-            <button 
-              onClick={() => setIsBulkMode(!isBulkMode)} 
+            <button
+              onClick={() => setIsBulkMode(!isBulkMode)}
               className="bg-white text-zinc-600 border-2 border-zinc-200 px-6 py-3 rounded-xl font-black text-sm shadow-sm hover:bg-zinc-50 transition-all"
             >
               {isBulkMode ? '閉じる' : 'テキストから一括追加'}
@@ -259,9 +259,9 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
           <div className="mb-8 bg-white p-6 rounded-3xl border-2 border-zinc-200 shadow-lg animate-in fade-in slide-in-from-top-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-black text-zinc-800">テキストから一括追加</h3>
-              <select 
-                value={bulkTargetDate} 
-                onChange={e => setBulkTargetDate(e.target.value)} 
+              <select
+                value={bulkTargetDate}
+                onChange={e => setBulkTargetDate(e.target.value)}
                 className="bg-zinc-50 border-2 border-zinc-100 rounded-lg px-3 py-1.5 text-sm font-bold outline-none text-zinc-700"
               >
                 {weekDays.map(d => {
@@ -284,7 +284,7 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
         )}
       </div>
 
-      <div className="flex-1 overflow-x-auto flex custom-scrollbar bg-zinc-50/5">
+      <div className="flex-1 overflow-x-auto flex custom-scrollbar bg-zinc-50/5 min-h-0">
         {weekDays.map(date => {
           const { day, dateNum, month } = getDayInfo(date);
           const dayTasks = tasks.filter(t => t.date === date);
@@ -293,61 +293,59 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask }) => {
           const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
           const isToday = date === new Date().toISOString().split('T')[0];
           const currentInput = inlineInputs[date] || '';
-          
+
           return (
-            <div key={date} className={`min-w-[360px] border-r-2 border-zinc-100 flex flex-col p-8 transition-all ${isToday ? 'bg-white shadow-2xl z-10 relative ring-4 ring-zinc-800/5' : ''}`}>
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-baseline space-x-3">
-                   <span className={`text-3xl font-black ${isToday ? 'text-zinc-900' : 'text-zinc-800'}`}>{month}/{dateNum}</span>
-                   <span className="text-xs font-black text-zinc-400 tracking-widest">{day}曜</span>
+            <div key={date} className={`min-w-[320px] border-r-2 border-zinc-100 flex flex-col h-full transition-all ${isToday ? 'bg-white shadow-2xl z-10 relative ring-4 ring-zinc-800/5' : ''}`}>
+              {/* 日付ヘッダー・進捗: 固定 */}
+              <div className="flex-shrink-0 p-6 pb-0">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-baseline space-x-3">
+                    <span className={`text-3xl font-black ${isToday ? 'text-zinc-900' : 'text-zinc-800'}`}>{month}/{dateNum}</span>
+                    <span className="text-xs font-black text-zinc-400 tracking-widest">{day}曜</span>
+                  </div>
+                  {isToday && <span className="text-[11px] font-black bg-zinc-800 text-white px-4 py-1.5 rounded-full tracking-widest shadow-lg shadow-zinc-100">今日</span>}
                 </div>
-                {isToday && <span className="text-[11px] font-black bg-zinc-800 text-white px-4 py-1.5 rounded-full tracking-widest shadow-lg shadow-zinc-100">今日</span>}
+                <div className="mb-4">
+                  <div className="flex justify-between items-end mb-2">
+                    <span className="text-[11px] font-black text-zinc-300 tracking-[0.2em]">進捗</span>
+                    <span className="text-sm font-black text-zinc-800">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="h-2 bg-zinc-50 rounded-full overflow-hidden border border-zinc-100">
+                    <div className="h-full bg-zinc-800 transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+                  </div>
+                </div>
               </div>
 
-              {/* 進捗バー */}
-              <div className="mb-10">
-                <div className="flex justify-between items-end mb-3">
-                   <span className="text-[11px] font-black text-zinc-300 tracking-[0.2em]">一日の進捗</span>
-                   <span className="text-sm font-black text-zinc-800">{Math.round(progress)}%</span>
-                </div>
-                <div className="h-3 bg-zinc-50 rounded-full overflow-hidden border border-zinc-100">
-                   <div className="h-full bg-zinc-800 transition-all duration-1000 shadow-[0_0_8px_rgba(244,63,94,0.3)]" style={{ width: `${progress}%` }}></div>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto custom-scrollbar mb-8 space-y-4 pr-1">
+              {/* タスクリスト: スクロール */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-6 py-4 space-y-3">
                 {dayTasks.length > 0 ? (
                   dayTasks.map(t => (
-                    <div key={t.id} className={`p-5 rounded-3xl border-2 transition-all ${t.completed ? 'bg-zinc-50 border-zinc-100 text-zinc-400 opacity-60' : 'bg-white border-zinc-200 text-zinc-700 shadow-md hover:border-zinc-400 hover:shadow-xl'}`}>
-                       <div className="font-black text-base mb-3 leading-tight">{t.title}</div>
-                       <div className="flex justify-between items-center text-[10px] font-black text-zinc-400 tracking-widest">
-                          <span className="bg-zinc-50 text-zinc-400 px-3 py-1 rounded-full border border-zinc-100">{t.startTime || '予定なし'}</span>
-                          {t.customerName && <span className="text-zinc-800 font-black">@{t.customerName}</span>}
-                       </div>
+                    <div key={t.id} className={`p-4 rounded-2xl border-2 transition-all ${t.completed ? 'bg-zinc-50 border-zinc-100 text-zinc-400 opacity-60' : 'bg-white border-zinc-200 text-zinc-700 shadow-md hover:border-zinc-400 hover:shadow-xl'}`}>
+                      <div className="font-black text-sm mb-2 leading-tight">{t.title}</div>
+                      <div className="flex justify-between items-center text-[10px] font-black text-zinc-400 tracking-widest">
+                        <span className="bg-zinc-50 text-zinc-400 px-3 py-1 rounded-full border border-zinc-100">{t.startTime || '予定なし'}</span>
+                        {t.customerName && <span className="text-zinc-800 font-black">@{t.customerName}</span>}
+                      </div>
                     </div>
                   ))
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center border-4 border-dashed border-zinc-100 rounded-[3rem] py-20 opacity-30">
-                    <svg className="w-12 h-12 mb-3 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2.5"/></svg>
+                  <div className="h-full flex flex-col items-center justify-center border-4 border-dashed border-zinc-100 rounded-[3rem] py-10 opacity-30">
+                    <svg className="w-10 h-10 mb-3 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2.5" /></svg>
                     <span className="text-[11px] font-black tracking-[0.3em] text-zinc-300">予定なし</span>
                   </div>
                 )}
               </div>
-              
-              <div className="pt-8 border-t-2 border-zinc-50">
-                <div className="relative group">
-                   <input 
+
+              {/* 入力欄: 固定 */}
+              <div className="flex-shrink-0 p-4 border-t-2 border-zinc-50">
+                <div className="relative">
+                  <input
                     value={currentInput}
                     onChange={(e) => setInlineInputs({ ...inlineInputs, [date]: e.target.value })}
                     onKeyDown={(e) => e.key === 'Enter' && handleInlineAdd(date)}
-                    placeholder="タスクを入力してEnter..."
-                    className={`w-full text-sm p-5 rounded-2xl outline-none transition-all font-black placeholder:text-zinc-200 shadow-inner ${getInputStyle(currentInput)}`}
+                    placeholder="Enterで追加..."
+                    className={`w-full text-sm p-4 rounded-2xl outline-none transition-all font-black placeholder:text-zinc-300 shadow-inner ${getInputStyle(currentInput)}`}
                   />
-                  {!currentInput.trim() && (
-                    <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <span className="text-[10px] font-black text-zinc-300 tracking-widest animate-pulse">必須入力</span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

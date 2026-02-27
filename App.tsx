@@ -217,8 +217,8 @@ const App: React.FC = () => {
     addTask(title, projectId, tags, estimatedTime, date, explicitStartTime, isRoutine, customerName, projectName, details);
   };
 
-  const convertEmailToTask = (email: Email) => {
-    addTask(email.subject, 'p3', ['Gmail', 'MCP'], 1800, targetDate, undefined, false, email.customerName, email.projectName);
+  const convertEmailToTask = (email: Email, date: string, startTime: string, estimatedTime: number) => {
+    addTask(email.subject, 'p3', ['Gmail'], estimatedTime, date, startTime || undefined, false, email.customerName, email.projectName);
     markAsRead(email.id);
   };
 
@@ -252,7 +252,7 @@ const App: React.FC = () => {
             onToggleTimer={toggleTimer}
             targetDate={targetDate}
             setTargetDate={setTargetDate}
-            onAddRoutines={() => {}}
+            onAddRoutines={() => { }}
           />
         );
       case 'inbox':
@@ -295,7 +295,7 @@ const App: React.FC = () => {
             className="w-full flex items-center justify-center space-x-3 bg-zinc-900 text-white px-6 py-4 rounded-2xl shadow-lg hover:bg-zinc-800 transition-all text-sm font-black tracking-widest"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+              <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
             </svg>
             <span>Googleでログイン</span>
           </button>
@@ -322,29 +322,29 @@ const App: React.FC = () => {
               {currentView === 'project-detail' ? projects.find(p => p.id === selectedProjectId)?.name : viewTitleMap[currentView]}
             </h1>
             <div className="flex items-center space-x-3 text-[11px] font-black text-zinc-300">
-               <span className="tracking-widest">表示日:</span>
-               <input
-                  type="date"
-                  value={targetDate}
-                  onChange={(e) => setTargetDate(e.target.value)}
-                  className="bg-zinc-50 px-4 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100"
-               />
+              <span className="tracking-widest">表示日:</span>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={(e) => setTargetDate(e.target.value)}
+                className="bg-zinc-50 px-4 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100"
+              />
             </div>
           </div>
           <div className="flex items-center space-x-6">
-             {isGoogleConnected && (
-               <div className="flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
-                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-                 <span>Google 接続済み</span>
-               </div>
-             )}
-             {activeTaskId && (
-               <div className="flex items-center space-x-3 bg-zinc-800 text-white px-4 py-1.5 rounded-full shadow-lg shadow-zinc-200">
-                  <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
-                  <span className="text-[11px] font-black tracking-widest">時間計測中...</span>
-               </div>
-             )}
-             <div className="text-[11px] font-black text-zinc-200 tracking-widest uppercase">ZenWork Mini v2.0.0</div>
+            {isGoogleConnected && (
+              <div className="flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+                <span>Google 接続済み</span>
+              </div>
+            )}
+            {activeTaskId && (
+              <div className="flex items-center space-x-3 bg-zinc-800 text-white px-4 py-1.5 rounded-full shadow-lg shadow-zinc-200">
+                <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+                <span className="text-[11px] font-black tracking-widest">時間計測中...</span>
+              </div>
+            )}
+            <div className="text-[11px] font-black text-zinc-200 tracking-widest uppercase">ZenWork Mini v2.0.0</div>
           </div>
         </header>
         <div className="flex-1 overflow-auto custom-scrollbar flex">
