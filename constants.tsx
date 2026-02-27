@@ -44,6 +44,31 @@ export const SOFTWARE_LAUNCHERS: Record<string, { name: string; protocol: string
   'Gmail': { name: 'Gmail', protocol: 'https://mail.google.com', icon: '📧' },
 };
 
+// 共有ユーティリティ関数
+export const extractCategories = (title: string, details?: string) => {
+  const text = `${title} ${details || ''}`;
+  const matched: { name: string; color: string; icon: string }[] = [];
+  for (const [name, cfg] of Object.entries(TASK_CATEGORY_KEYWORDS)) {
+    if (cfg.keywords.some(kw => text.includes(kw))) {
+      matched.push({ name, color: cfg.color, icon: cfg.icon });
+    }
+  }
+  return matched;
+};
+
+export const extractSoftware = (title: string, details?: string) => {
+  const text = `${title} ${details || ''}`;
+  const matched: { name: string; protocol: string; icon: string }[] = [];
+  const seen = new Set<string>();
+  for (const [keyword, cfg] of Object.entries(SOFTWARE_LAUNCHERS)) {
+    if (text.includes(keyword) && !seen.has(cfg.name)) {
+      seen.add(cfg.name);
+      matched.push(cfg);
+    }
+  }
+  return matched;
+};
+
 export const commonTaskSuggestions = [
   "打ち合わせ (MTG)",
   "進捗報告メール送信",

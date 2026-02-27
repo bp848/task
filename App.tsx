@@ -385,6 +385,7 @@ const App: React.FC = () => {
             tasks={tasks}
             targetDate={targetDate}
             onClose={() => setSelectedTaskId(null)}
+            onUpdateTask={updateTask}
           />
         </div>
       </main>

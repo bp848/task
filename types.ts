@@ -29,8 +29,33 @@ export interface Task {
   date: string; 
   createdAt: string;
   completedAt?: string;
-  isRoutine?: boolean; 
-  sourceEmailId?: string; 
+  isRoutine?: boolean;
+  sourceEmailId?: string;
+  workflowAnswers?: WorkflowState;
+}
+
+export interface WorkflowStep {
+  stepId: string;
+  question: string;
+  options: string[];
+  allowFreeText?: boolean;
+}
+
+export interface WorkflowTemplate {
+  category: string;
+  steps: WorkflowStep[];
+}
+
+export interface WorkflowAnswer {
+  stepId: string;
+  question: string;
+  answer: string;
+  answeredAt: string;
+}
+
+export interface WorkflowState {
+  category: string;
+  steps: WorkflowAnswer[];
 }
 
 export interface Project {

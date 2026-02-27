@@ -22,6 +22,7 @@ interface DbTask {
   completed_at: string | null;
   is_routine: boolean | null;
   source_email_id: string | null;
+  workflow_answers: Record<string, unknown> | null;
 }
 
 function dbToTask(row: DbTask): Task {
@@ -43,6 +44,7 @@ function dbToTask(row: DbTask): Task {
     completedAt: row.completed_at || undefined,
     isRoutine: row.is_routine || undefined,
     sourceEmailId: row.source_email_id || undefined,
+    workflowAnswers: (row.workflow_answers as unknown as Task['workflowAnswers']) || undefined,
   };
 }
 
@@ -64,6 +66,7 @@ function taskToDb(task: Partial<Task> & { id: string }, userId: string): Partial
   if (task.completedAt !== undefined) db.completed_at = task.completedAt || null;
   if (task.isRoutine !== undefined) db.is_routine = task.isRoutine;
   if (task.sourceEmailId !== undefined) db.source_email_id = task.sourceEmailId || null;
+  if ((task as any).workflowAnswers !== undefined) db.workflow_answers = (task as any).workflowAnswers || null;
   return db as Partial<DbTask>;
 }
 
@@ -195,6 +198,7 @@ export function useZenworkTasks(session: Session | null) {
     if (updates.date !== undefined) dbUpdates.date = updates.date;
     if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt || null;
     if (updates.isRoutine !== undefined) dbUpdates.is_routine = updates.isRoutine;
+    if (updates.workflowAnswers !== undefined) dbUpdates.workflow_answers = updates.workflowAnswers || null;
 
     const { error } = await supabase
       .from('zenwork_tasks')

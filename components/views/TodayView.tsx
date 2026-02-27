@@ -2,32 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Task, Project } from '../../types';
 import GeminiSummary from '../GeminiSummary';
-import { commonTaskSuggestions, TASK_CATEGORY_KEYWORDS, SOFTWARE_LAUNCHERS } from '../../constants';
-
-// Extract categories and software from task title/details
-const extractCategories = (title: string, details?: string) => {
-  const text = `${title} ${details || ''}`;
-  const matched: { name: string; color: string; icon: string }[] = [];
-  for (const [name, cfg] of Object.entries(TASK_CATEGORY_KEYWORDS)) {
-    if (cfg.keywords.some(kw => text.includes(kw))) {
-      matched.push({ name, color: cfg.color, icon: cfg.icon });
-    }
-  }
-  return matched;
-};
-
-const extractSoftware = (title: string, details?: string) => {
-  const text = `${title} ${details || ''}`;
-  const matched: { name: string; protocol: string; icon: string }[] = [];
-  const seen = new Set<string>();
-  for (const [keyword, cfg] of Object.entries(SOFTWARE_LAUNCHERS)) {
-    if (text.includes(keyword) && !seen.has(cfg.name)) {
-      seen.add(cfg.name);
-      matched.push(cfg);
-    }
-  }
-  return matched;
-};
+import { commonTaskSuggestions, extractCategories, extractSoftware } from '../../constants';
 
 // --- Celebration system ---
 const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '⭐', '🌟', '👏', '🙌', '💫'];
@@ -262,6 +237,7 @@ const TodayView: React.FC<TodayViewProps> = ({
   const [bulkText, setBulkText] = useState('');
   const [showRoutines, setShowRoutines] = useState(true);
   const [celebrateTrigger, setCelebrateTrigger] = useState(0);
+  const [routineFreqPicker, setRoutineFreqPicker] = useState<string | null>(null);
 
   const activeTask = useMemo(() => tasks.find(t => t.id === activeTaskId), [tasks, activeTaskId]);
 
@@ -301,8 +277,10 @@ const TodayView: React.FC<TodayViewProps> = ({
     );
   };
 
-  const handleSaveAsRoutine = (taskId: string) => {
-    onUpdateTask(taskId, { isRoutine: true });
+  const handleSaveAsRoutine = (taskId: string, frequency?: string) => {
+    const tags = frequency ? [frequency] : [];
+    onUpdateTask(taskId, { isRoutine: true, tags });
+    setRoutineFreqPicker(null);
   };
 
   const filteredSuggestions = useMemo(() => {
@@ -590,7 +568,10 @@ const TodayView: React.FC<TodayViewProps> = ({
                       <svg className="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="3" strokeLinecap="round"/></svg>
                     )}
                     <span>{tmpl.title}</span>
-                    {tmpl.customerName && <span className="text-zinc-300">@{tmpl.customerName}</span>}
+                    {tmpl.tags.includes('daily') && <span className="text-[8px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">毎日</span>}
+                    {tmpl.tags.includes('weekly') && <span className="text-[8px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded-full">毎週</span>}
+                    {tmpl.tags.includes('monthly') && <span className="text-[8px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded-full">毎月</span>}
+                    {tmpl.customerName && <span className="text-zinc-400">@{tmpl.customerName}</span>}
                   </button>
                 );
               })}
@@ -620,12 +601,12 @@ const TodayView: React.FC<TodayViewProps> = ({
           const isActive = activeTaskId === task.id;
           const isSelected = selectedTaskId === task.id;
           return (
-            <div key={task.id} className={`bg-white rounded-3xl border-2 p-4 sm:p-6 flex flex-col transition-all ${
-              task.completed 
-                ? 'opacity-60 grayscale bg-zinc-50 border-zinc-100' 
-                : isActive 
-                  ? 'border-zinc-800 ring-4 ring-zinc-50 shadow-2xl scale-[1.02]' 
-                  : 'border-zinc-200 hover:border-zinc-400 shadow-lg'
+            <div key={task.id} className={`rounded-3xl border-2 p-4 sm:p-6 flex flex-col transition-all ${
+              task.completed
+                ? 'opacity-50 bg-zinc-100 border-zinc-200'
+                : isActive
+                  ? 'bg-white border-zinc-800 ring-4 ring-blue-100 shadow-2xl scale-[1.02]'
+                  : 'bg-white border-zinc-300 hover:border-zinc-500 shadow-lg hover:shadow-xl'
             }`}>
               <div className="flex items-center w-full">
                 <button
@@ -693,9 +674,9 @@ const TodayView: React.FC<TodayViewProps> = ({
               
               {/* 展開される詳細エリア */}
               {isSelected && (
-                <div className="mt-4 pt-4 border-t-2 border-zinc-50 animate-in fade-in slide-in-from-top-2">
-                  <div className="bg-zinc-50/50 rounded-2xl p-4">
-                    <h4 className="text-[10px] font-black text-zinc-400 tracking-widest mb-2">プロセス・詳細メモ</h4>
+                <div className="mt-4 pt-4 border-t-2 border-zinc-200 animate-in fade-in slide-in-from-top-2">
+                  <div className="bg-blue-50/30 rounded-2xl p-4 border border-blue-100">
+                    <h4 className="text-[10px] font-black text-blue-500 tracking-widest mb-2">プロセス・詳細メモ</h4>
                     <textarea
                       value={task.details || ''}
                       onChange={(e) => onUpdateTask(task.id, { details: e.target.value })}
@@ -708,17 +689,42 @@ const TodayView: React.FC<TodayViewProps> = ({
                          <div className={`text-lg font-mono font-black ${isActive ? 'text-zinc-900' : 'text-zinc-600'}`}>{formatStopwatch(task.timeSpent)}</div>
                        </div>
                        {!task.isRoutine ? (
-                         <button
-                           onClick={() => handleSaveAsRoutine(task.id)}
-                           className="text-[10px] font-black text-zinc-400 hover:text-zinc-700 transition-all flex items-center space-x-1 ml-auto"
-                         >
-                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                           <span>定型タスクとして保存</span>
-                         </button>
+                         routineFreqPicker === task.id ? (
+                           <div className="flex items-center gap-2 ml-auto animate-in fade-in">
+                             <span className="text-[10px] font-black text-zinc-500">頻度:</span>
+                             {[
+                               { label: '毎日', value: 'daily', icon: '&#9728;' },
+                               { label: '毎週', value: 'weekly', icon: '&#128197;' },
+                               { label: '毎月', value: 'monthly', icon: '&#128198;' },
+                             ].map(f => (
+                               <button
+                                 key={f.value}
+                                 onClick={() => handleSaveAsRoutine(task.id, f.value)}
+                                 className="px-3 py-1.5 text-[10px] font-black bg-zinc-800 text-white rounded-full hover:bg-zinc-700 transition-all"
+                               >
+                                 {f.label}
+                               </button>
+                             ))}
+                             <button
+                               onClick={() => setRoutineFreqPicker(null)}
+                               className="text-[10px] text-zinc-400 hover:text-zinc-600 font-black"
+                             >
+                               Cancel
+                             </button>
+                           </div>
+                         ) : (
+                           <button
+                             onClick={() => setRoutineFreqPicker(task.id)}
+                             className="text-[10px] font-black text-zinc-500 hover:text-zinc-800 transition-all flex items-center space-x-1 ml-auto"
+                           >
+                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                             <span>定型タスクとして保存</span>
+                           </button>
+                         )
                        ) : (
-                         <span className="text-[10px] font-black text-zinc-300 flex items-center space-x-1 ml-auto">
+                         <span className="text-[10px] font-black text-blue-500 flex items-center space-x-1 ml-auto bg-blue-50 px-2 py-1 rounded-full">
                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                           <span>定型タスク</span>
+                           <span>定型タスク{task.tags.includes('daily') ? ' (毎日)' : task.tags.includes('weekly') ? ' (毎週)' : task.tags.includes('monthly') ? ' (毎月)' : ''}</span>
                          </span>
                        )}
                     </div>
@@ -735,47 +741,130 @@ const TodayView: React.FC<TodayViewProps> = ({
         )}
       </div>
 
-      {/* カテゴリ分析 */}
+      {/* === 3カテゴリ分析セクション === */}
       {filteredTasks.length > 0 && (() => {
-        const catStats: Record<string, { count: number; time: number; color: string; icon: string }> = {};
+        const CUST_COLORS = ['#3B82F6', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#F97316', '#EF4444'];
+
+        // タスクカテゴリ集計
+        const catStats: Record<string, { count: number; time: number; color: string; icon: string; tasks: typeof filteredTasks }> = {};
         filteredTasks.forEach(t => {
           extractCategories(t.title, t.details).forEach(cat => {
-            if (!catStats[cat.name]) catStats[cat.name] = { count: 0, time: 0, color: cat.color, icon: cat.icon };
+            if (!catStats[cat.name]) catStats[cat.name] = { count: 0, time: 0, color: cat.color, icon: cat.icon, tasks: [] };
             catStats[cat.name].count++;
             catStats[cat.name].time += t.timeSpent;
+            catStats[cat.name].tasks.push(t);
           });
         });
-        const entries = Object.entries(catStats).sort((a, b) => b[1].count - a[1].count);
-        if (entries.length === 0) return null;
-        const totalTime = entries.reduce((s, [, v]) => s + v.time, 0);
+        const catEntries = Object.entries(catStats).sort((a, b) => b[1].count - a[1].count);
+        const totalCatTime = catEntries.reduce((s, [, v]) => s + v.time, 0);
+
+        // 顧客別集計
+        const custGroups: Record<string, { tasks: typeof filteredTasks; totalTime: number; completed: number }> = {};
+        filteredTasks.forEach(t => {
+          const cust = t.customerName || '（顧客未設定）';
+          if (!custGroups[cust]) custGroups[cust] = { tasks: [], totalTime: 0, completed: 0 };
+          custGroups[cust].tasks.push(t);
+          custGroups[cust].totalTime += t.timeSpent;
+          if (t.completed) custGroups[cust].completed++;
+        });
+        const custEntries = Object.entries(custGroups).sort((a, b) => b[1].tasks.length - a[1].tasks.length);
+
+        // ソフトウェア集計
+        const swStats: Record<string, { count: number; time: number; icon: string; tasks: string[] }> = {};
+        filteredTasks.forEach(t => {
+          extractSoftware(t.title, t.details).forEach(sw => {
+            if (!swStats[sw.name]) swStats[sw.name] = { count: 0, time: 0, icon: sw.icon, tasks: [] };
+            swStats[sw.name].count++;
+            swStats[sw.name].time += t.timeSpent;
+            swStats[sw.name].tasks.push(t.title);
+          });
+        });
+        const swEntries = Object.entries(swStats).sort((a, b) => b[1].count - a[1].count);
+
         return (
-          <div className="mt-10 w-full max-w-3xl">
-            <h3 className="text-[11px] font-black text-zinc-400 tracking-widest mb-4 px-3">本日のカテゴリ分析</h3>
-            <div className="bg-white rounded-2xl border-2 border-zinc-100 p-5 shadow-sm">
-              <div className="flex flex-wrap gap-3 mb-4">
-                {entries.map(([name, stat]) => (
-                  <div key={name} className="flex items-center space-x-2 px-3 py-2 rounded-xl border" style={{ borderColor: stat.color + '40' }}>
-                    <span className="text-lg">{stat.icon}</span>
-                    <div>
-                      <div className="text-[11px] font-black" style={{ color: stat.color }}>{name}</div>
-                      <div className="text-[10px] text-zinc-400 font-bold">{stat.count}件 / {Math.floor(stat.time / 60)}分</div>
-                    </div>
+          <div className="mt-10 w-full max-w-3xl space-y-6">
+            {/* タスクカテゴリ */}
+            {catEntries.length > 0 && (
+              <div>
+                <h3 className="text-[11px] font-black text-zinc-500 tracking-widest mb-3 px-3">タスクカテゴリ</h3>
+                <div className="bg-white rounded-2xl border-2 border-zinc-200 p-5 shadow-sm">
+                  <div className="flex flex-wrap gap-3 mb-4">
+                    {catEntries.map(([name, stat]) => (
+                      <div key={name} className="flex items-center space-x-2 px-3 py-2 rounded-xl border-2" style={{ borderColor: stat.color + '60' }}>
+                        <span className="text-lg">{stat.icon}</span>
+                        <div>
+                          <div className="text-[11px] font-black" style={{ color: stat.color }}>{name}</div>
+                          <div className="text-[10px] text-zinc-500 font-bold">{stat.count}件 / {Math.floor(stat.time / 60)}分</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              {totalTime > 0 && (
-                <div className="h-3 rounded-full overflow-hidden flex bg-zinc-100">
-                  {entries.map(([name, stat]) => (
-                    <div
-                      key={name}
-                      className="h-full transition-all"
-                      style={{ width: `${(stat.time / totalTime) * 100}%`, backgroundColor: stat.color }}
-                      title={`${name}: ${Math.floor(stat.time / 60)}分`}
-                    />
-                  ))}
+                  {totalCatTime > 0 && (
+                    <div className="h-3 rounded-full overflow-hidden flex bg-zinc-100">
+                      {catEntries.map(([name, stat]) => (
+                        <div key={name} className="h-full" style={{ width: `${(stat.time / totalCatTime) * 100}%`, backgroundColor: stat.color }} title={`${name}: ${Math.floor(stat.time / 60)}分`} />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
+
+            {/* 顧客カテゴリ */}
+            <div>
+              <h3 className="text-[11px] font-black text-zinc-500 tracking-widest mb-3 px-3">顧客カテゴリ</h3>
+              <div className="bg-white rounded-2xl border-2 border-zinc-200 p-5 shadow-sm space-y-3">
+                {custEntries.map(([name, data], i) => {
+                  const color = CUST_COLORS[i % CUST_COLORS.length];
+                  return (
+                    <details key={name} className="group">
+                      <summary className="flex items-center gap-3 cursor-pointer list-none">
+                        <div className="w-3 h-8 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-black text-zinc-800">{name}</div>
+                          <div className="text-[10px] text-zinc-500 font-bold">
+                            {data.tasks.length}件 ({data.completed}完了) / {Math.floor(data.totalTime / 60)}分
+                          </div>
+                        </div>
+                        <div className="w-20 h-2 bg-zinc-100 rounded-full overflow-hidden shrink-0">
+                          <div className="h-full rounded-full" style={{ width: `${data.tasks.length > 0 ? (data.completed / data.tasks.length) * 100 : 0}%`, backgroundColor: color }} />
+                        </div>
+                        <svg className="w-4 h-4 text-zinc-400 group-open:rotate-90 transition-transform shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      </summary>
+                      <div className="ml-6 mt-2 space-y-1.5 border-l-2 pl-3 pb-1" style={{ borderColor: color + '40' }}>
+                        {data.tasks.map(t => (
+                          <div key={t.id} className="flex items-center gap-2 text-[11px]">
+                            <span className={`font-black ${t.completed ? 'line-through text-zinc-400' : 'text-zinc-700'}`}>{t.title}</span>
+                            <span className="text-zinc-400 font-bold shrink-0">{Math.floor(t.timeSpent / 60)}分</span>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
             </div>
+
+            {/* ソフトウェアカテゴリ */}
+            {swEntries.length > 0 && (
+              <div>
+                <h3 className="text-[11px] font-black text-zinc-500 tracking-widest mb-3 px-3">ソフトウェアカテゴリ</h3>
+                <div className="bg-white rounded-2xl border-2 border-zinc-200 p-5 shadow-sm">
+                  <div className="flex flex-wrap gap-3">
+                    {swEntries.map(([name, stat]) => (
+                      <div key={name} className="flex items-center space-x-2 px-4 py-3 rounded-xl border-2 border-zinc-200 bg-zinc-50">
+                        <span className="text-xl">{stat.icon}</span>
+                        <div>
+                          <div className="text-xs font-black text-zinc-800">{name}</div>
+                          <div className="text-[10px] text-zinc-500 font-bold">{stat.count}件 / {Math.floor(stat.time / 60)}分</div>
+                          <div className="text-[9px] text-zinc-400 font-medium truncate max-w-[180px]">{stat.tasks.join(', ')}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
