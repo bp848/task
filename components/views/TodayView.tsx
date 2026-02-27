@@ -1,8 +1,208 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Task, Project } from '../../types';
 import GeminiSummary from '../GeminiSummary';
 import { commonTaskSuggestions } from '../../constants';
+
+// --- Celebration system ---
+const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '⭐', '🌟', '👏', '🙌', '💫'];
+const CAT_EMOJIS = ['🐱', '😺', '😸', '😻', '🐈', '🐈‍⬛', '😽', '🐾'];
+const PRAISE_MESSAGES = ['おつかれさま！', 'ナイス！', 'すごい！', 'よくやった！', '完了！', 'えらい！', 'バッチリ！'];
+
+interface Particle {
+  id: number;
+  emoji: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  scale: number;
+  opacity: number;
+}
+
+const CelebrationOverlay: React.FC<{ trigger: number; completedCount: number }> = ({ trigger, completedCount }) => {
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [bigCat, setBigCat] = useState<{ emoji: string; x: number } | null>(null);
+  const [dolphin, setDolphin] = useState<{ phase: number } | null>(null);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (trigger === 0) return;
+
+    // Confetti burst from multiple points
+    const burst: Particle[] = Array.from({ length: 40 }, (_, i) => {
+      const originX = 20 + Math.random() * 60;
+      return {
+        id: Date.now() + i,
+        emoji: CONFETTI_EMOJIS[Math.floor(Math.random() * CONFETTI_EMOJIS.length)],
+        x: originX,
+        y: 40 + Math.random() * 20,
+        vx: (Math.random() - 0.5) * 18,
+        vy: -(Math.random() * 10 + 6),
+        rotation: Math.random() * 360,
+        scale: 0.8 + Math.random() * 1.2,
+        opacity: 1,
+      };
+    });
+
+    // Cats raining from top
+    const cats: Particle[] = Array.from({ length: 12 }, (_, i) => ({
+      id: Date.now() + 100 + i,
+      emoji: CAT_EMOJIS[Math.floor(Math.random() * CAT_EMOJIS.length)],
+      x: Math.random() * 100,
+      y: -(Math.random() * 30),
+      vx: (Math.random() - 0.5) * 3,
+      vy: Math.random() * 2 + 1.5,
+      rotation: (Math.random() - 0.5) * 40,
+      scale: 1.5 + Math.random() * 2,
+      opacity: 1,
+    }));
+
+    setParticles([...burst, ...cats]);
+    setMessage(PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)]);
+
+    // Big cat walks across
+    const cat = CAT_EMOJIS[Math.floor(Math.random() * CAT_EMOJIS.length)];
+    setBigCat({ emoji: cat, x: -15 });
+
+    // Dolphin on milestone completions (5, 10, 15, 20...)
+    if (completedCount > 0 && completedCount % 5 === 0) {
+      setDolphin({ phase: 0 });
+    }
+
+    const clearTimer = setTimeout(() => {
+      setParticles([]);
+      setBigCat(null);
+      setDolphin(null);
+      setMessage('');
+    }, 3500);
+    return () => clearTimeout(clearTimer);
+  }, [trigger]);
+
+  // Animate particles
+  useEffect(() => {
+    if (particles.length === 0) return;
+    let frame: number;
+    const animate = () => {
+      setParticles(prev => prev.map(p => ({
+        ...p,
+        x: p.x + p.vx * 0.3,
+        y: p.y + p.vy * 0.3,
+        vy: p.vy + 0.25,
+        rotation: p.rotation + p.vx * 1.5,
+        opacity: Math.max(0, p.opacity - 0.005),
+      })).filter(p => p.y < 130 && p.opacity > 0));
+      frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [particles.length > 0]);
+
+  // Animate big cat walking across
+  useEffect(() => {
+    if (!bigCat) return;
+    let frame: number;
+    const animate = () => {
+      setBigCat(prev => {
+        if (!prev || prev.x > 110) return null;
+        return { ...prev, x: prev.x + 0.8 };
+      });
+      frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [bigCat !== null]);
+
+  // Animate dolphin jumping
+  useEffect(() => {
+    if (!dolphin) return;
+    let frame: number;
+    const animate = () => {
+      setDolphin(prev => {
+        if (!prev || prev.phase > 200) return null;
+        return { phase: prev.phase + 1.5 };
+      });
+      frame = requestAnimationFrame(animate);
+    };
+    frame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frame);
+  }, [dolphin !== null]);
+
+  if (particles.length === 0 && !bigCat && !dolphin && !message) return null;
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {/* Confetti & cats */}
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            transform: `rotate(${p.rotation}deg) scale(${p.scale})`,
+            fontSize: `${1.2 * p.scale}rem`,
+            opacity: p.opacity,
+            willChange: 'transform',
+          }}
+        >
+          {p.emoji}
+        </div>
+      ))}
+
+      {/* Big cat walking across bottom */}
+      {bigCat && (
+        <div
+          className="absolute bottom-8"
+          style={{
+            left: `${bigCat.x}%`,
+            fontSize: '5rem',
+            transform: `scaleX(-1)`,
+            transition: 'none',
+            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.15))',
+          }}
+        >
+          {bigCat.emoji}
+        </div>
+      )}
+
+      {/* Dolphin jumping in arc */}
+      {dolphin && (() => {
+        const t = dolphin.phase / 200;
+        const x = 10 + t * 80;
+        const y = 70 - Math.sin(t * Math.PI) * 55;
+        const rot = -30 + t * 60;
+        return (
+          <div
+            className="absolute"
+            style={{
+              left: `${x}%`,
+              top: `${y}%`,
+              fontSize: '4rem',
+              transform: `rotate(${rot}deg)`,
+              transition: 'none',
+              filter: 'drop-shadow(0 4px 16px rgba(59,130,246,0.3))',
+            }}
+          >
+            🐬
+          </div>
+        );
+      })()}
+
+      {/* Praise message */}
+      {message && (
+        <div className="absolute inset-0 flex items-center justify-center animate-bounce">
+          <div className="text-5xl sm:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-yellow-400 to-cyan-400 drop-shadow-lg select-none"
+            style={{ textShadow: '0 4px 24px rgba(0,0,0,0.1)' }}
+          >
+            {message}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface TodayViewProps {
   tasks: Task[];
@@ -36,8 +236,22 @@ const TodayView: React.FC<TodayViewProps> = ({
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState('');
   const [showRoutines, setShowRoutines] = useState(true);
+  const [celebrateTrigger, setCelebrateTrigger] = useState(0);
 
   const activeTask = useMemo(() => tasks.find(t => t.id === activeTaskId), [tasks, activeTaskId]);
+
+  const completedCount = useMemo(() =>
+    tasks.filter(t => t.date === targetDate && t.completed).length
+  , [tasks, targetDate]);
+  const isRainbow = completedCount >= 10;
+
+  const handleToggleWithCelebration = useCallback((id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (task && !task.completed) {
+      setCelebrateTrigger(prev => prev + 1);
+    }
+    onToggleTask(id);
+  }, [tasks, onToggleTask]);
 
   // 過去のルーティンタスクからユニークなテンプレートを生成
   const routineTemplates = useMemo(() => {
@@ -168,7 +382,31 @@ const TodayView: React.FC<TodayViewProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-zinc-50/10 overflow-y-auto items-center py-8 px-4 pb-32">
-      
+      <CelebrationOverlay trigger={celebrateTrigger} completedCount={completedCount} />
+
+      {isRainbow && (
+        <style>{`
+          @keyframes rainbow-border {
+            0% { border-color: #ef4444; box-shadow: 0 0 12px #ef444466; }
+            16% { border-color: #f97316; box-shadow: 0 0 12px #f9731666; }
+            33% { border-color: #eab308; box-shadow: 0 0 12px #eab30866; }
+            50% { border-color: #22c55e; box-shadow: 0 0 12px #22c55e66; }
+            66% { border-color: #3b82f6; box-shadow: 0 0 12px #3b82f666; }
+            83% { border-color: #a855f7; box-shadow: 0 0 12px #a855f766; }
+            100% { border-color: #ef4444; box-shadow: 0 0 12px #ef444466; }
+          }
+          .rainbow-check { animation: rainbow-border 3s linear infinite; }
+          @keyframes rainbow-bg {
+            0% { background: linear-gradient(135deg, #ef4444, #f97316); }
+            25% { background: linear-gradient(135deg, #eab308, #22c55e); }
+            50% { background: linear-gradient(135deg, #3b82f6, #a855f7); }
+            75% { background: linear-gradient(135deg, #ec4899, #ef4444); }
+            100% { background: linear-gradient(135deg, #ef4444, #f97316); }
+          }
+          .rainbow-check-done { animation: rainbow-bg 3s linear infinite; border-color: transparent !important; }
+        `}</style>
+      )}
+
       {/* 実行中タイマー */}
       {activeTask && (
         <div className="w-full max-w-3xl mb-10">
@@ -363,9 +601,13 @@ const TodayView: React.FC<TodayViewProps> = ({
                   : 'border-zinc-200 hover:border-zinc-400 shadow-lg'
             }`}>
               <div className="flex items-center w-full">
-                <button 
-                  onClick={() => onToggleTask(task.id)} 
-                  className={`w-8 h-8 rounded-2xl border-4 flex items-center justify-center shrink-0 mr-4 sm:mr-6 transition-all ${task.completed ? 'bg-zinc-800 border-zinc-800 text-white shadow-lg' : 'border-zinc-200 hover:border-zinc-800'}`}
+                <button
+                  onClick={() => handleToggleWithCelebration(task.id)}
+                  className={`w-8 h-8 rounded-2xl border-4 flex items-center justify-center shrink-0 mr-4 sm:mr-6 transition-all ${
+                    task.completed
+                      ? `text-white shadow-lg ${isRainbow ? 'rainbow-check-done' : 'bg-zinc-800 border-zinc-800'}`
+                      : `hover:border-zinc-800 ${isRainbow ? 'rainbow-check' : 'border-zinc-200'}`
+                  }`}
                 >
                   {task.completed && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="4"/></svg>}
                 </button>
