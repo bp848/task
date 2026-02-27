@@ -255,7 +255,6 @@ const App: React.FC = () => {
             onToggleTimer={toggleTimer}
             targetDate={targetDate}
             setTargetDate={setTargetDate}
-            onAddRoutines={() => { }}
           />
         );
       case 'inbox':
