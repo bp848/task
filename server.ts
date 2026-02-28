@@ -262,8 +262,8 @@ async function startServer() {
   } else {
     const path = await import('path');
     app.use(express.static('dist'));
-    // SPA fallback
-    app.get('*', (_req, res) => {
+    // SPA fallback (Express 5 requires named param for wildcard)
+    app.get('/{*splat}', (_req, res) => {
       res.sendFile(path.default.resolve('dist', 'index.html'));
     });
   }
