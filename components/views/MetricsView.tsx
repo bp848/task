@@ -27,7 +27,7 @@ const MetricsView: React.FC<MetricsViewProps> = ({ tasks }) => {
       <div className="max-w-5xl mx-auto">
         <header className="mb-10">
           <h2 className="text-xl font-bold text-zinc-800 tracking-tight">業務分析・実績レポート</h2>
-          <p className="text-xs text-zinc-400 font-bold mt-1 uppercase">石島のこれまでの業務実績を可視化しています。</p>
+          <p className="text-xs text-zinc-400 font-bold mt-1 uppercase">三神 杏友さんのこれまでの業務実績を可視化しています。</p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
