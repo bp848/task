@@ -53,6 +53,8 @@ const App: React.FC = () => {
   }>({});
   const [clockTime, setClockTime] = useState(new Date());
   const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
+  const [plannerWeekOffset, setPlannerWeekOffset] = useState(0);
+  const [plannerBulkMode, setPlannerBulkMode] = useState(false);
 
   // Supabase-backed hooks
   const {
@@ -315,6 +317,10 @@ const App: React.FC = () => {
           onToggleTask={handleToggleTask}
           onDeleteTask={deleteTask}
           onNavigateToDay={(date) => { setTargetDate(date); setCurrentView('today'); }}
+          weekOffset={plannerWeekOffset}
+          setWeekOffset={setPlannerWeekOffset}
+          isBulkMode={plannerBulkMode}
+          setIsBulkMode={setPlannerBulkMode}
         />;
       case 'schedule':
         return <ScheduleView tasks={tasks} targetDate={targetDate} />;
@@ -391,19 +397,37 @@ const App: React.FC = () => {
       />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-16 border-b-2 border-zinc-100 bg-white flex items-center justify-between px-8 shrink-0 z-10">
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-6">
             <h1 className="text-base font-black text-zinc-800 tracking-widest">
               {currentView === 'project-detail' ? projects.find(p => p.id === selectedProjectId)?.name : viewTitleMap[currentView]}
             </h1>
-            <div className="flex items-center space-x-3 text-[11px] font-black text-zinc-300">
-              <span className="tracking-widest">表示日:</span>
-              <input
-                type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                className="bg-zinc-50 px-4 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100"
-              />
-            </div>
+            {currentView === 'planner' ? (
+              <div className="flex items-center space-x-2">
+                <button onClick={() => setPlannerWeekOffset(w => w - 1)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-all text-slate-500 cursor-pointer">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button onClick={() => setPlannerWeekOffset(() => 0)} className="px-3 py-1 rounded-lg text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">今週</button>
+                <button onClick={() => setPlannerWeekOffset(w => w + 1)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-all text-slate-500 cursor-pointer">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <button
+                  onClick={() => setPlannerBulkMode(v => !v)}
+                  className={`ml-2 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer border ${plannerBulkMode ? 'bg-indigo-800 text-white border-indigo-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                >
+                  {plannerBulkMode ? '一括追加を閉じる' : 'テキストから一括追加'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-3 text-[11px] font-black text-zinc-300">
+                <span className="tracking-widest">表示日:</span>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="bg-zinc-50 px-4 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100"
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center space-x-6">
             {googleError ? (

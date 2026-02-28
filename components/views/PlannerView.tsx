@@ -10,6 +10,10 @@ interface PlannerViewProps {
   onToggleTask?: (id: string) => void;
   onDeleteTask?: (id: string) => void;
   onNavigateToDay?: (date: string) => void;
+  weekOffset: number;
+  setWeekOffset: (fn: (w: number) => number) => void;
+  isBulkMode: boolean;
+  setIsBulkMode: (v: boolean) => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -18,11 +22,9 @@ const formatTime = (seconds: number) => {
   return h > 0 ? `${h}h${m > 0 ? `${m}m` : ''}` : `${m}m`;
 };
 
-const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onNavigateToDay }) => {
+const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onNavigateToDay, weekOffset, setWeekOffset: _setWeekOffset, isBulkMode, setIsBulkMode }) => {
   const [inlineInputs, setInlineInputs] = useState<Record<string, string>>({});
-  const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkText, setBulkText] = useState('');
-  const [weekOffset, setWeekOffset] = useState(0);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingDetails, setEditingDetails] = useState<string>('');
 
@@ -294,57 +296,34 @@ const PlannerView: React.FC<PlannerViewProps> = ({ tasks, onAddTask, onUpdateTas
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* ヘッダー */}
-      <div className="px-6 py-4 flex-shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <h2 className="text-base font-black text-slate-800 tracking-tight">週間プランナー</h2>
-            <div className="flex items-center space-x-1">
-              <button onClick={() => setWeekOffset(w => w - 1)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-all text-slate-500 cursor-pointer">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
-              </button>
-              <button onClick={() => setWeekOffset(0)} className="px-3 py-1 rounded-lg text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">今週</button>
-              <button onClick={() => setWeekOffset(w => w + 1)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-all text-slate-500 cursor-pointer">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
-              </button>
-            </div>
+      {/* 一括追加パネル（ヘッダーは左メニューに移動済み） */}
+      {isBulkMode && (
+        <div className="flex-shrink-0 px-4 py-3 bg-slate-50 border-b border-slate-200">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-black text-sm text-slate-800">テキストから一括追加</h3>
+            <select
+              value={bulkTargetDate}
+              onChange={e => setBulkTargetDate(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none text-slate-700"
+            >
+              {weekDays.map(d => {
+                const info = getDayInfo(d);
+                return <option key={d} value={d}>{info.month}/{info.dateNum} ({info.day})</option>;
+              })}
+            </select>
           </div>
-          <button
-            onClick={() => setIsBulkMode(!isBulkMode)}
-            className="bg-white text-slate-600 border border-slate-200 px-4 py-2 rounded-lg font-black text-xs shadow-sm hover:bg-slate-50 transition-all cursor-pointer"
-          >
-            {isBulkMode ? '閉じる' : 'テキストから一括追加'}
-          </button>
+          <textarea
+            value={bulkText}
+            onChange={e => setBulkText(e.target.value)}
+            placeholder="■13:00–13:15&#10;・GSX様依頼連絡&#10;（ご依頼に対するメールの返信）"
+            className="w-full p-3 rounded-lg outline-none text-sm font-bold text-slate-800 border border-slate-200 bg-white min-h-[100px] mb-2 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+          />
+          <div className="flex justify-end space-x-2">
+            <button onClick={() => setIsBulkMode(false)} className="px-4 py-2 rounded-lg font-black text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">閉じる</button>
+            <button onClick={handleBulkSubmit} disabled={!bulkText.trim()} className={`px-5 py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${bulkText.trim() ? 'bg-indigo-800 text-white hover:bg-indigo-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>追加する</button>
+          </div>
         </div>
-
-        {isBulkMode && (
-          <div className="mt-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-black text-sm text-slate-800">テキストから一括追加</h3>
-              <select
-                value={bulkTargetDate}
-                onChange={e => setBulkTargetDate(e.target.value)}
-                className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-bold outline-none text-slate-700"
-              >
-                {weekDays.map(d => {
-                  const info = getDayInfo(d);
-                  return <option key={d} value={d}>{info.month}/{info.dateNum} ({info.day})</option>;
-                })}
-              </select>
-            </div>
-            <textarea
-              value={bulkText}
-              onChange={e => setBulkText(e.target.value)}
-              placeholder="■13:00–13:15&#10;・GSX様依頼連絡&#10;（ご依頼に対するメールの返信）"
-              className="w-full p-3 rounded-lg outline-none text-sm font-bold text-slate-800 border border-slate-200 bg-white min-h-[120px] mb-3 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
-            />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setIsBulkMode(false)} className="px-4 py-2 rounded-lg font-black text-xs text-slate-500 hover:bg-slate-100 cursor-pointer">キャンセル</button>
-              <button onClick={handleBulkSubmit} disabled={!bulkText.trim()} className={`px-5 py-2 rounded-lg font-black text-xs transition-all cursor-pointer ${bulkText.trim() ? 'bg-indigo-800 text-white hover:bg-indigo-700' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>追加する</button>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* 週間グリッド - フル画面使用 */}
       <div className="flex-1 grid grid-cols-7 min-h-0 overflow-hidden">
