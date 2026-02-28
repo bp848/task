@@ -64,17 +64,38 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
   oauth2Client.setCredentials({
     access_token: tokenData.access_token,
     refresh_token: tokenData.refresh_token || undefined,
+    expiry_date: tokenData.expires_at ? new Date(tokenData.expires_at).getTime() : undefined,
   });
 
   // Handle token refresh
   oauth2Client.on('tokens', async (tokens) => {
-    if (tokens.access_token) {
-      await supabase.from('user_google_tokens').update({
-        access_token: tokens.access_token,
-        updated_at: new Date().toISOString(),
-      }).eq('user_id', user.id);
-    }
+    console.log('[TOKEN] Auto-refresh triggered, updating DB...');
+    const updates: Record<string, string> = { updated_at: new Date().toISOString() };
+    if (tokens.access_token) updates.access_token = tokens.access_token;
+    if (tokens.refresh_token) updates.refresh_token = tokens.refresh_token;
+    if (tokens.expiry_date) updates.expires_at = new Date(tokens.expiry_date).toISOString();
+    await supabase.from('user_google_tokens').update(updates).eq('user_id', user.id);
   });
+
+  // Force refresh if token is expired
+  const expiresAt = tokenData.expires_at ? new Date(tokenData.expires_at).getTime() : 0;
+  if (expiresAt < Date.now() && tokenData.refresh_token) {
+    try {
+      console.log('[TOKEN] Token expired, forcing refresh...');
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      oauth2Client.setCredentials(credentials);
+      // Save refreshed token
+      const updates: Record<string, string> = { updated_at: new Date().toISOString() };
+      if (credentials.access_token) updates.access_token = credentials.access_token;
+      if (credentials.expiry_date) updates.expires_at = new Date(credentials.expiry_date).toISOString();
+      await supabase.from('user_google_tokens').update(updates).eq('user_id', user.id);
+      console.log('[TOKEN] Token refreshed successfully');
+    } catch (refreshErr: any) {
+      console.error('[TOKEN] Refresh failed:', refreshErr?.message);
+      res.status(401).json({ error: 'Google token expired and refresh failed. Please re-login with Google.' });
+      return;
+    }
+  }
 
   (req as any).oauth2Client = oauth2Client;
   (req as any).userId = user.id;

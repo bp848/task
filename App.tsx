@@ -174,11 +174,14 @@ const App: React.FC = () => {
     clearEmails();
   };
 
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
   const fetchGoogleData = async (currentSession?: Session) => {
     const s = currentSession || session;
     if (!s) return;
 
     const token = s.access_token;
+    setGoogleError(null);
 
     // Fetch Gmail
     try {
@@ -188,6 +191,10 @@ const App: React.FC = () => {
       if (emailRes.ok) {
         const emailData = await emailRes.json();
         setEmails(emailData);
+      } else if (emailRes.status === 401) {
+        const errData = await emailRes.json().catch(() => ({}));
+        console.error('Gmail auth error:', errData);
+        setGoogleError('Google認証が切れています。再ログインしてください。');
       }
     } catch (err) {
       console.error('Failed to fetch Gmail:', err);
@@ -201,6 +208,8 @@ const App: React.FC = () => {
       if (calRes.ok) {
         const calData = await calRes.json();
         mergeCalendarTasks(calData);
+      } else if (calRes.status === 401) {
+        setGoogleError('Google認証が切れています。再ログインしてください。');
       }
     } catch (err) {
       console.error('Failed to fetch Calendar:', err);
@@ -390,12 +399,20 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center space-x-6">
-            {isGoogleConnected && (
+            {googleError ? (
+              <button
+                onClick={handleGoogleLogin}
+                className="flex items-center space-x-2 text-[10px] font-black text-red-600 bg-red-50 px-3 py-1.5 rounded-full hover:bg-red-600 hover:text-white transition-all cursor-pointer border border-red-200 hover:border-red-600"
+              >
+                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                <span>再ログイン必要</span>
+              </button>
+            ) : isGoogleConnected ? (
               <div className="flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
                 <span>Google 接続済み</span>
               </div>
-            )}
+            ) : null}
             {activeTaskId && (
               <div className="flex items-center space-x-3 bg-zinc-800 text-white px-4 py-1.5 rounded-full shadow-lg shadow-zinc-200">
                 <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
