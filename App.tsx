@@ -85,6 +85,8 @@ const App: React.FC = () => {
           .then(({ data }) => { if (data) setAppSettings({ psychedelic_mode: data.psychedelic_mode, ai_persona: data.ai_persona, auto_memo: data.auto_memo }); });
         supabase.from('customers').select('customer_name').not('customer_name', 'is', null).order('customer_name')
           .then(({ data }) => { if (data) setCustomerSuggestions(data.map((r: { customer_name: string }) => r.customer_name).filter(Boolean)); });
+        // Fetch Google data on initial load
+        fetchGoogleData(session);
       }
       setLoading(false);
     }).catch((err) => {
