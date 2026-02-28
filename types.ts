@@ -34,6 +34,7 @@ export interface Task {
   workflowAnswers?: WorkflowState;
   timerStartedAt?: string;
   timerStoppedAt?: string;
+  assignees?: string[];
 }
 
 export interface WorkflowStep {

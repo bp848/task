@@ -721,10 +721,18 @@ const TodayView: React.FC<TodayViewProps> = ({
                     {task.startTime && <span className="text-[10px] bg-indigo-900 text-white px-2 sm:px-3 py-1 rounded-full font-black tracking-tighter shadow-sm whitespace-nowrap">{task.startTime}</span>}
                     <span className={`text-base sm:text-lg font-black truncate group-hover:text-indigo-700 transition-colors ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task.title}</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] font-black text-zinc-400">
+                  <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] font-black text-slate-400">
                     {task.customerName && <span className="text-slate-500 tracking-tighter">@{task.customerName}</span>}
                     {task.projectName && <span className="text-slate-300 hidden sm:inline">|</span>}
                     {task.projectName && <span className="text-slate-400 tracking-tighter">{task.projectName}</span>}
+                    {task.assignees && task.assignees.length > 0 && (
+                      <>
+                        <span className="text-slate-300 hidden sm:inline">|</span>
+                        {task.assignees.map(a => (
+                          <span key={a} className="text-indigo-600 tracking-tighter">@{a}</span>
+                        ))}
+                      </>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {extractCategories(task.title, task.details).map(cat => (
@@ -747,15 +755,15 @@ const TodayView: React.FC<TodayViewProps> = ({
 
                 <div className="flex items-center space-x-4 sm:space-x-8 ml-2 sm:ml-8 shrink-0">
                   <div className="text-right hidden sm:block">
-                    <div className={`text-xl font-mono font-black ${isActive ? 'text-slate-900' : 'text-slate-600'}`}>{formatStopwatch(task.timeSpent)}</div>
-                    <div className="text-[9px] text-slate-400 font-black tracking-widest">実績時間</div>
                     {(task.timerStartedAt || task.timerStoppedAt) && (
-                      <div className="text-[9px] font-mono font-bold text-blue-500 mt-0.5">
+                      <div className="text-[11px] font-mono font-black text-indigo-700 mb-0.5 flex items-center justify-end gap-1">
                         {task.timerStartedAt && <span>{task.timerStartedAt}</span>}
-                        {task.timerStartedAt && task.timerStoppedAt && <span> → </span>}
-                        {task.timerStoppedAt && <span>{task.timerStoppedAt}</span>}
+                        <span className="text-slate-300">→</span>
+                        {task.timerStoppedAt ? <span>{task.timerStoppedAt}</span> : isActive ? <span className="text-indigo-500 animate-pulse">計測中</span> : <span className="text-slate-300">--:--</span>}
                       </div>
                     )}
+                    <div className={`text-xl font-mono font-black ${isActive ? 'text-slate-900' : 'text-slate-600'}`}>{formatStopwatch(task.timeSpent)}</div>
+                    <div className="text-[9px] text-slate-400 font-black tracking-widest">実績時間</div>
                   </div>
                   {!task.completed && (
                     <button 
@@ -776,7 +784,41 @@ const TodayView: React.FC<TodayViewProps> = ({
               {isSelected && (
                 <div className="mt-4 pt-4 border-t border-slate-200 animate-in fade-in slide-in-from-top-2">
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    <h4 className="text-[10px] font-black text-indigo-700 tracking-widest mb-2">プロセス・詳細メモ</h4>
+                    {/* 担当者・登場人物 */}
+                    <div className="mb-3">
+                      <h4 className="text-[10px] font-black text-indigo-700 tracking-widest mb-1.5">担当者・登場人物</h4>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(task.assignees || []).map(a => (
+                          <span key={a} className="flex items-center gap-1 bg-indigo-100 text-indigo-800 text-[10px] font-black px-2.5 py-1 rounded-lg">
+                            @{a}
+                            <button
+                              onClick={() => onUpdateTask(task.id, { assignees: (task.assignees || []).filter(x => x !== a) })}
+                              className="text-indigo-400 hover:text-red-500 ml-0.5 cursor-pointer"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          </span>
+                        ))}
+                        <input
+                          placeholder="@名前を追加..."
+                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-800 outline-none focus:border-indigo-400 w-28 placeholder:text-slate-400"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = (e.target as HTMLInputElement).value.replace(/^@/, '').trim();
+                              if (val) {
+                                const current = task.assignees || [];
+                                if (!current.includes(val)) {
+                                  onUpdateTask(task.id, { assignees: [...current, val] });
+                                }
+                                (e.target as HTMLInputElement).value = '';
+                              }
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <h4 className="text-[10px] font-black text-indigo-700 tracking-widest mb-1.5">プロセス・詳細メモ</h4>
                     <textarea
                       value={task.details || ''}
                       onChange={(e) => onUpdateTask(task.id, { details: e.target.value })}

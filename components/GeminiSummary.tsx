@@ -83,7 +83,7 @@ Tel.03-3851-0111
     // メール系タスクが多い → 自動化提案
     const emailTasks = dayTasks.filter(t => extractCategories(t.title).some(c => c.name === 'メール'));
     if (emailTasks.length >= 3) {
-      suggestions.push(`メール関連${emailTasks.length}件 → メール定型文の自動生成で効率化`);
+      suggestions.push(`メール関連${emailTasks.length}件 → メールテンプレートの自動生成で効率化`);
     }
 
     // 同一顧客への複数タスク → まとめ提案

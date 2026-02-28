@@ -25,6 +25,7 @@ interface DbTask {
   workflow_answers: Record<string, unknown> | null;
   timer_started_at: string | null;
   timer_stopped_at: string | null;
+  assignees: string[] | null;
 }
 
 function dbToTask(row: DbTask): Task {
@@ -49,6 +50,7 @@ function dbToTask(row: DbTask): Task {
     workflowAnswers: (row.workflow_answers as unknown as Task['workflowAnswers']) || undefined,
     timerStartedAt: row.timer_started_at || undefined,
     timerStoppedAt: row.timer_stopped_at || undefined,
+    assignees: row.assignees || undefined,
   };
 }
 
@@ -73,6 +75,7 @@ function taskToDb(task: Partial<Task> & { id: string }, userId: string): Partial
   if ((task as any).workflowAnswers !== undefined) db.workflow_answers = (task as any).workflowAnswers || null;
   if ((task as any).timerStartedAt !== undefined) db.timer_started_at = (task as any).timerStartedAt || null;
   if ((task as any).timerStoppedAt !== undefined) db.timer_stopped_at = (task as any).timerStoppedAt || null;
+  if (task.assignees !== undefined) db.assignees = task.assignees && task.assignees.length > 0 ? task.assignees : null;
   return db as Partial<DbTask>;
 }
 
@@ -207,6 +210,7 @@ export function useZenworkTasks(session: Session | null) {
     if (updates.workflowAnswers !== undefined) dbUpdates.workflow_answers = updates.workflowAnswers || null;
     if (updates.timerStartedAt !== undefined) dbUpdates.timer_started_at = updates.timerStartedAt || null;
     if (updates.timerStoppedAt !== undefined) dbUpdates.timer_stopped_at = updates.timerStoppedAt || null;
+    if (updates.assignees !== undefined) dbUpdates.assignees = updates.assignees && updates.assignees.length > 0 ? updates.assignees : null;
 
     const { error } = await supabase
       .from('zenwork_tasks')

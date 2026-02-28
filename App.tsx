@@ -80,7 +80,7 @@ const App: React.FC = () => {
       setLoading(false);
     }, 5000);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       clearTimeout(timeout);
       setSession(session);
       if (session) {
@@ -94,8 +94,23 @@ const App: React.FC = () => {
           }); });
         supabase.from('customers').select('customer_name').not('customer_name', 'is', null).order('customer_name')
           .then(({ data }) => { if (data) setCustomerSuggestions(data.map((r: { customer_name: string }) => r.customer_name).filter(Boolean)); });
-        // Fetch Google data on initial load
-        fetchGoogleData(session);
+
+        // Check if stored Google tokens have correct scopes
+        const { data: tokenData } = await supabase
+          .from('user_google_tokens')
+          .select('scope')
+          .eq('user_id', session.user.id)
+          .single();
+        const requiredScopes = ['gmail.readonly', 'calendar.readonly'];
+        const storedScope = tokenData?.scope || '';
+        const missingScope = requiredScopes.some(s => !storedScope.includes(s));
+        if (missingScope) {
+          console.warn('[AUTH] Google tokens missing required scopes. Need re-login.', storedScope);
+          setGoogleError('Googleスコープが不足しています。Gmail/カレンダーを使うには再ログインが必要です。');
+        } else {
+          // Fetch Google data on initial load
+          fetchGoogleData(session);
+        }
       }
       setLoading(false);
     }).catch((err) => {
@@ -108,10 +123,13 @@ const App: React.FC = () => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
         setIsGoogleConnected(true);
+        setGoogleError(null);
         if (session.provider_token) {
           await saveGoogleTokens(session);
+          console.log('[AUTH] Google tokens saved after login');
         }
-        fetchGoogleData(session);
+        // Small delay to ensure tokens are saved before fetching
+        setTimeout(() => fetchGoogleData(session), 500);
       } else if (event === 'SIGNED_OUT') {
         setIsGoogleConnected(false);
         clearEmails();
@@ -433,10 +451,10 @@ const App: React.FC = () => {
             {googleError ? (
               <button
                 onClick={handleGoogleLogin}
-                className="flex items-center space-x-2 text-[10px] font-black text-red-600 bg-red-50 px-3 py-1.5 rounded-full hover:bg-red-600 hover:text-white transition-all cursor-pointer border border-red-200 hover:border-red-600"
+                className="flex items-center space-x-2 text-xs font-black text-white bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 transition-all cursor-pointer shadow-lg shadow-red-200 animate-pulse"
               >
-                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
-                <span>再ログイン必要</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>Googleに再ログイン（Gmail/カレンダー）</span>
               </button>
             ) : isGoogleConnected ? (
               <div className="flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
