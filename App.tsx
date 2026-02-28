@@ -56,7 +56,7 @@ const App: React.FC = () => {
 
   // Supabase-backed hooks
   const {
-    tasks, addTask, updateTask, toggleTask, syncTimeSpent, mergeCalendarTasks,
+    tasks, addTask, updateTask, toggleTask, deleteTask, syncTimeSpent, mergeCalendarTasks,
   } = useZenworkTasks(session);
   const {
     emails, fetchFromGmail, markAsRead, setEmails, clearEmails,
@@ -308,7 +308,14 @@ const App: React.FC = () => {
       case 'inbox':
         return <InboxView tasks={tasks} emails={emails} onConvertToTask={convertEmailToTask} />;
       case 'planner':
-        return <PlannerView tasks={tasks} onAddTask={handleAddTask} />;
+        return <PlannerView
+          tasks={tasks}
+          onAddTask={handleAddTask}
+          onUpdateTask={updateTask}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={deleteTask}
+          onNavigateToDay={(date) => { setTargetDate(date); setCurrentView('today'); }}
+        />;
       case 'schedule':
         return <ScheduleView tasks={tasks} targetDate={targetDate} />;
       case 'project-detail':

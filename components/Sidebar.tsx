@@ -21,14 +21,17 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onViewChange, isOpen, toggleSidebar, user, onLogout }) => {
   const mainItems = [
     { id: 'today', label: '本日の業務', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
-    { id: 'task-view', label: '作業ベース', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
-    { id: 'customer-view', label: '顧客ベース', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
     { id: 'inbox', label: '受信トレイ', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
     { id: 'planner', label: '週次計画', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: 'schedule', label: 'タイムライン', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
     { id: 'metrics', label: '業務分析', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { id: 'habits', label: '習慣管理', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
     { id: 'settings', label: '設定', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
+  ];
+
+  const projectViews = [
+    { id: 'task-view', label: '作業ベース', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
+    { id: 'customer-view', label: '顧客ベース', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
   ];
 
   const projects = [
@@ -92,9 +95,29 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, selectedProjectId, onVie
             <div className="mt-8 px-4">
               <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest mb-4">プロジェクト</h3>
               <ul className="space-y-1">
+                {projectViews.map(item => (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => {
+                        onViewChange(item.id as ViewType);
+                        if (window.innerWidth < 768) toggleSidebar();
+                      }}
+                      className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all cursor-pointer ${
+                        currentView === item.id
+                          ? 'bg-zinc-800 text-white font-bold'
+                          : 'text-zinc-600 hover:bg-zinc-700 hover:text-white'
+                      }`}
+                    >
+                      <svg className="w-4 h-4 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d={item.icon} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  </li>
+                ))}
                 {projects.map(p => (
                   <li key={p.id}>
-                    <button 
+                    <button
                       onClick={() => {
                         onViewChange('project-detail', p.id);
                         if (window.innerWidth < 768) toggleSidebar();

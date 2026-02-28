@@ -677,8 +677,8 @@ const TodayView: React.FC<TodayViewProps> = ({
       <div className="w-full max-w-3xl space-y-4">
         <div className="flex items-center justify-between px-3 mb-6">
            <div className="flex items-center space-x-4">
-             <h3 className="text-sm font-black text-zinc-800 tracking-[0.2em]">本日のタスク</h3>
-             <span className="text-[11px] bg-zinc-100 text-zinc-900 px-3 py-1 rounded-full font-black">{filteredTasks.length}</span>
+             <h3 className="text-sm font-black text-slate-800 tracking-[0.2em]">本日のタスク</h3>
+             <span className="text-[11px] bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-black">{filteredTasks.length}</span>
            </div>
            <div className="flex items-center space-x-3">
               <input 
@@ -694,37 +694,37 @@ const TodayView: React.FC<TodayViewProps> = ({
           const isActive = activeTaskId === task.id;
           const isSelected = selectedTaskId === task.id;
           return (
-            <div key={task.id} className={`rounded-3xl border-2 p-4 sm:p-6 flex flex-col transition-all ${
+            <div key={task.id} className={`rounded-2xl border p-4 sm:p-6 flex flex-col transition-all ${
               task.completed
-                ? 'opacity-50 bg-zinc-100 border-zinc-200'
+                ? 'opacity-50 bg-slate-50 border-slate-200'
                 : isActive
-                  ? 'bg-white border-zinc-800 ring-4 ring-blue-100 shadow-2xl scale-[1.02]'
-                  : 'bg-white border-zinc-300 hover:border-zinc-500 shadow-lg hover:shadow-xl'
+                  ? 'bg-white border-indigo-600 ring-4 ring-indigo-100 shadow-2xl scale-[1.01]'
+                  : 'bg-white border-slate-200 hover:border-indigo-300 shadow-sm hover:shadow-lg'
             }`}>
               <div className="flex items-center w-full">
                 <button
                   onClick={() => handleToggleWithCelebration(task.id)}
-                  className={`w-8 h-8 rounded-2xl border-4 flex items-center justify-center shrink-0 mr-4 sm:mr-6 transition-all cursor-pointer ${
+                  className={`w-8 h-8 rounded-xl border-[3px] flex items-center justify-center shrink-0 mr-4 sm:mr-6 transition-all cursor-pointer ${
                     task.completed
-                      ? `text-white shadow-lg ${isRainbow ? 'rainbow-check-done' : 'bg-zinc-800 border-zinc-800'}`
-                      : `hover:border-zinc-800 hover:bg-zinc-100 hover:scale-110 ${isRainbow ? 'rainbow-check' : 'border-zinc-300'}`
+                      ? `text-white shadow-lg ${isRainbow ? 'rainbow-check-done' : 'bg-indigo-700 border-indigo-700'}`
+                      : `hover:border-indigo-500 hover:bg-indigo-50 hover:scale-110 ${isRainbow ? 'rainbow-check' : 'border-slate-300'}`
                   }`}
                 >
                   {task.completed && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="4"/></svg>}
                 </button>
                 
                 <div
-                  className="flex-1 min-w-0 cursor-pointer group hover:bg-zinc-100 rounded-xl px-2 py-1 -mx-2 -my-1 transition-all"
+                  className="flex-1 min-w-0 cursor-pointer group hover:bg-slate-50 rounded-xl px-2 py-1 -mx-2 -my-1 transition-all"
                   onClick={() => onSelectTask(task.id)}
                 >
                   <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
-                    {task.startTime && <span className="text-[10px] bg-zinc-800 text-white px-2 sm:px-3 py-1 rounded-full font-black tracking-tighter shadow-sm whitespace-nowrap">{task.startTime}</span>}
-                    <span className={`text-base sm:text-lg font-black truncate group-hover:text-blue-600 transition-colors ${task.completed ? 'line-through text-zinc-400' : 'text-zinc-800'}`}>{task.title}</span>
+                    {task.startTime && <span className="text-[10px] bg-indigo-900 text-white px-2 sm:px-3 py-1 rounded-full font-black tracking-tighter shadow-sm whitespace-nowrap">{task.startTime}</span>}
+                    <span className={`text-base sm:text-lg font-black truncate group-hover:text-indigo-700 transition-colors ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task.title}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] font-black text-zinc-400">
-                    {task.customerName && <span className="text-zinc-400 tracking-tighter">@{task.customerName}</span>}
-                    {task.projectName && <span className="text-zinc-200 hidden sm:inline">|</span>}
-                    {task.projectName && <span className="tracking-tighter">{task.projectName}</span>}
+                    {task.customerName && <span className="text-slate-500 tracking-tighter">@{task.customerName}</span>}
+                    {task.projectName && <span className="text-slate-300 hidden sm:inline">|</span>}
+                    {task.projectName && <span className="text-slate-400 tracking-tighter">{task.projectName}</span>}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {extractCategories(task.title, task.details).map(cat => (
@@ -736,7 +736,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                       <a
                         key={sw.name}
                         href={sw.protocol}
-                        className="text-[9px] font-black px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 hover:bg-zinc-800 hover:text-white transition-all cursor-pointer"
+                        className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-indigo-800 hover:text-white transition-all cursor-pointer"
                         title={`${sw.name} を開く`}
                       >
                         {sw.icon} {sw.name}
@@ -747,8 +747,8 @@ const TodayView: React.FC<TodayViewProps> = ({
 
                 <div className="flex items-center space-x-4 sm:space-x-8 ml-2 sm:ml-8 shrink-0">
                   <div className="text-right hidden sm:block">
-                    <div className={`text-xl font-mono font-black ${isActive ? 'text-zinc-900' : 'text-zinc-600'}`}>{formatStopwatch(task.timeSpent)}</div>
-                    <div className="text-[9px] text-zinc-400 font-black tracking-widest">実績時間</div>
+                    <div className={`text-xl font-mono font-black ${isActive ? 'text-slate-900' : 'text-slate-600'}`}>{formatStopwatch(task.timeSpent)}</div>
+                    <div className="text-[9px] text-slate-400 font-black tracking-widest">実績時間</div>
                     {(task.timerStartedAt || task.timerStoppedAt) && (
                       <div className="text-[9px] font-mono font-bold text-blue-500 mt-0.5">
                         {task.timerStartedAt && <span>{task.timerStartedAt}</span>}
@@ -760,7 +760,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                   {!task.completed && (
                     <button 
                       onClick={() => onToggleTimer(task.id)}
-                      className={`w-10 h-10 sm:w-14 sm:h-14 rounded-2xl sm:rounded-3xl flex items-center justify-center transition-all shadow-xl active:scale-90 border-2 cursor-pointer ${isActive ? 'bg-white text-zinc-800 border-zinc-800 shadow-zinc-100 hover:bg-zinc-100' : 'bg-zinc-900 text-white hover:bg-blue-600 hover:border-blue-600 border-zinc-900 shadow-zinc-200'}`}
+                      className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all shadow-lg active:scale-90 border cursor-pointer ${isActive ? 'bg-white text-indigo-800 border-indigo-600 shadow-indigo-100 hover:bg-indigo-50' : 'bg-indigo-800 text-white hover:bg-indigo-700 border-indigo-800 shadow-slate-200'}`}
                     >
                       {isActive ? (
                         <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
@@ -774,14 +774,14 @@ const TodayView: React.FC<TodayViewProps> = ({
               
               {/* 展開される詳細エリア */}
               {isSelected && (
-                <div className="mt-4 pt-4 border-t-2 border-zinc-200 animate-in fade-in slide-in-from-top-2">
-                  <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-200">
-                    <h4 className="text-[10px] font-black text-blue-600 tracking-widest mb-2">プロセス・詳細メモ</h4>
+                <div className="mt-4 pt-4 border-t border-slate-200 animate-in fade-in slide-in-from-top-2">
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <h4 className="text-[10px] font-black text-indigo-700 tracking-widest mb-2">プロセス・詳細メモ</h4>
                     <textarea
                       value={task.details || ''}
                       onChange={(e) => onUpdateTask(task.id, { details: e.target.value })}
                       placeholder="タスクの詳細やプロセスを入力..."
-                      className="w-full bg-white border-2 border-blue-200 rounded-xl p-3 text-sm font-bold text-zinc-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 min-h-[80px] resize-y placeholder:text-zinc-400"
+                      className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 min-h-[80px] resize-y placeholder:text-slate-400"
                     />
 
                     {/* 検出されたアクションショートカット */}
@@ -796,7 +796,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                               href={sc.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border-2 border-blue-300 rounded-full text-[10px] font-black text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all cursor-pointer shadow-sm"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-[10px] font-black text-indigo-700 hover:bg-indigo-700 hover:text-white hover:border-indigo-700 transition-all cursor-pointer shadow-sm"
                               title={`${sc.name} を開く`}
                             >
                               <span>{sc.icon}</span>
@@ -810,13 +810,13 @@ const TodayView: React.FC<TodayViewProps> = ({
 
                     <div className="mt-3 flex justify-between items-center">
                        <div className="text-left sm:hidden">
-                         <div className="text-[9px] text-zinc-400 font-black tracking-widest mb-1">実績時間</div>
-                         <div className={`text-lg font-mono font-black ${isActive ? 'text-zinc-900' : 'text-zinc-600'}`}>{formatStopwatch(task.timeSpent)}</div>
+                         <div className="text-[9px] text-slate-400 font-black tracking-widest mb-1">実績時間</div>
+                         <div className={`text-lg font-mono font-black ${isActive ? 'text-slate-900' : 'text-slate-600'}`}>{formatStopwatch(task.timeSpent)}</div>
                        </div>
                        {!task.isRoutine ? (
                          routineFreqPicker === task.id ? (
                            <div className="flex items-center gap-2 ml-auto animate-in fade-in">
-                             <span className="text-[10px] font-black text-zinc-500">頻度:</span>
+                             <span className="text-[10px] font-black text-slate-500">頻度:</span>
                              {[
                                { label: '毎日', value: 'daily', color: 'bg-blue-600 hover:bg-blue-700' },
                                { label: '毎週', value: 'weekly', color: 'bg-green-600 hover:bg-green-700' },
@@ -832,7 +832,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                              ))}
                              <button
                                onClick={() => setRoutineFreqPicker(null)}
-                               className="text-[10px] text-zinc-400 hover:text-red-500 hover:bg-red-50 px-2 py-1 rounded-full font-black transition-all cursor-pointer"
+                               className="text-[10px] text-slate-400 hover:text-red-500 hover:bg-red-50 px-2 py-1 rounded-full font-black transition-all cursor-pointer"
                              >
                                Cancel
                              </button>
@@ -840,14 +840,14 @@ const TodayView: React.FC<TodayViewProps> = ({
                          ) : (
                            <button
                              onClick={() => setRoutineFreqPicker(task.id)}
-                             className="text-[10px] font-black text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-full transition-all flex items-center space-x-1.5 ml-auto border-2 border-blue-200 hover:border-blue-600 cursor-pointer active:scale-95 shadow-sm"
+                             className="text-[10px] font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-700 hover:text-white px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 ml-auto border border-indigo-200 hover:border-indigo-700 cursor-pointer active:scale-95 shadow-sm"
                            >
                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
                              <span>入力候補に登録</span>
                            </button>
                          )
                        ) : (
-                         <span className="text-[10px] font-black text-blue-500 flex items-center space-x-1 ml-auto bg-blue-50 px-2 py-1 rounded-full">
+                         <span className="text-[10px] font-black text-indigo-600 flex items-center space-x-1 ml-auto bg-indigo-50 px-2 py-1 rounded-lg">
                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
                            <span>入力候補{task.tags.includes('daily') ? ' (毎日)' : task.tags.includes('weekly') ? ' (毎週)' : task.tags.includes('monthly') ? ' (毎月)' : ''}</span>
                          </span>
@@ -860,8 +860,8 @@ const TodayView: React.FC<TodayViewProps> = ({
           );
         }) : (
           <div className="py-24 flex flex-col items-center justify-center text-center opacity-30">
-            <svg className="w-20 h-20 mb-6 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeWidth="1.5"/></svg>
-            <p className="text-lg font-black text-zinc-300 tracking-[0.3em]">タスクが見つかりません</p>
+            <svg className="w-20 h-20 mb-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeWidth="1.5"/></svg>
+            <p className="text-lg font-black text-slate-300 tracking-[0.3em]">タスクが見つかりません</p>
           </div>
         )}
       </div>
