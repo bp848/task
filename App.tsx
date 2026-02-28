@@ -258,9 +258,14 @@ const App: React.FC = () => {
   };
 
   const toggleTimer = (id: string) => {
+    const now = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     if (activeTaskId === id) {
+      // Timer OFF: record stop time
+      updateTask(id, { timerStoppedAt: now });
       setActiveTaskId(null);
     } else {
+      // Timer ON: record start time
+      updateTask(id, { timerStartedAt: now });
       setActiveTaskId(id);
       setSelectedTaskId(id);
     }

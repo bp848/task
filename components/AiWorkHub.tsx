@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import React, { useEffect, useState, useMemo } from 'react';
 import { Task, WorkflowAnswer, WorkflowState } from '../types';
 import { getWorkflowTemplate } from '../workflowTemplates';
+import { extractActionShortcuts } from '../constants';
 
 interface AiWorkHubProps {
   task: Task | null;
@@ -563,7 +564,7 @@ Tel.03-3851-0111
         </button>
       </div>
 
-      {/* Task info */}
+      {/* Task info + auto-detected shortcuts */}
       <div className="px-6 pt-5 pb-3">
         <label className="text-[10px] font-bold text-zinc-300 tracking-widest block mb-1">選択中のタスク</label>
         <h4 className="text-lg font-bold text-zinc-800 leading-tight">{task.title}</h4>
@@ -571,6 +572,30 @@ Tel.03-3851-0111
         {task.details && (
           <div className="mt-2 text-[11px] text-zinc-500 bg-zinc-50 rounded-lg p-2 font-medium line-clamp-3">{task.details}</div>
         )}
+        {/* Auto-detected action shortcuts from task text */}
+        {(() => {
+          const shortcuts = extractActionShortcuts(task.title, task.details);
+          if (shortcuts.length === 0) return null;
+          return (
+            <div className="mt-3">
+              <label className="text-[9px] font-black text-zinc-400 tracking-widest block mb-2">検出されたツール連携</label>
+              <div className="flex flex-wrap gap-2">
+                {shortcuts.map(sc => (
+                  <a
+                    key={sc.name}
+                    href={sc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 border-2 border-blue-200 rounded-xl text-[11px] font-black text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all cursor-pointer shadow-sm"
+                  >
+                    <span>{sc.icon}</span>
+                    <span>{sc.name}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Tab content */}
@@ -583,27 +608,53 @@ Tel.03-3851-0111
           <>
             <div className="mb-8">
               <label className="text-[10px] font-bold text-zinc-300 tracking-widest mb-4 block">連携ツールを選択</label>
-              <div className="grid grid-cols-4 gap-3">
-                {[
+              {(() => {
+                const detectedToolIds = new Set(
+                  extractActionShortcuts(task.title, task.details).map(s => s.toolId).filter(Boolean)
+                );
+                const tools = [
                   { id: 'gmail', name: 'Gmail', color: 'bg-zinc-50 text-zinc-800', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
                   { id: 'sheets', name: 'スプレッドシート', color: 'bg-zinc-100 text-zinc-700', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
                   { id: 'slack', name: 'Slack', color: 'bg-zinc-100 text-zinc-700', icon: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z' },
                   { id: 'drive', name: 'ドライブ', color: 'bg-zinc-100 text-zinc-700', icon: 'M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9l-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' }
-                ].map(tool => (
-                  <button
-                    key={tool.id}
-                    onClick={() => handleToolClick(tool.id as ToolType)}
-                    className={`flex flex-col items-center p-3 rounded-xl border transition-all ${
-                      selectedTool === tool.id ? 'border-zinc-800 bg-zinc-50/20 shadow-sm' : 'border-zinc-50'
-                    }`}
-                  >
-                    <div className={`w-10 h-10 ${tool.color} rounded-lg flex items-center justify-center mb-2`}>
-                       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={tool.icon} /></svg>
-                    </div>
-                    <span className="text-[10px] font-bold text-zinc-600 leading-tight">{tool.name}</span>
-                  </button>
-                ))}
-              </div>
+                ];
+                return (
+                  <div className="grid grid-cols-4 gap-3">
+                    {tools.map(tool => {
+                      const isDetected = detectedToolIds.has(tool.id);
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={() => handleToolClick(tool.id as ToolType)}
+                          className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
+                            selectedTool === tool.id
+                              ? 'border-zinc-800 bg-zinc-800 text-white shadow-lg'
+                              : isDetected
+                                ? 'border-blue-400 bg-blue-50 shadow-md ring-2 ring-blue-200 animate-pulse'
+                                : 'border-zinc-100 hover:border-zinc-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${
+                            selectedTool === tool.id
+                              ? 'bg-white text-zinc-800'
+                              : isDetected
+                                ? 'bg-blue-500 text-white'
+                                : tool.color
+                          }`}>
+                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={tool.icon} /></svg>
+                          </div>
+                          <span className={`text-[10px] font-bold leading-tight ${
+                            selectedTool === tool.id ? 'text-white' : isDetected ? 'text-blue-700 font-black' : 'text-zinc-600'
+                          }`}>{tool.name}</span>
+                          {isDetected && selectedTool !== tool.id && (
+                            <span className="text-[8px] font-black text-blue-500 mt-0.5">検出</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="relative">

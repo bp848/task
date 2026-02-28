@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Task, Project } from '../../types';
 import GeminiSummary from '../GeminiSummary';
-import { commonTaskSuggestions, extractCategories, extractSoftware } from '../../constants';
+import { commonTaskSuggestions, extractCategories, extractSoftware, extractActionShortcuts } from '../../constants';
 
 // --- Celebration system ---
 const CONFETTI_EMOJIS = ['🎉', '🎊', '✨', '⭐', '🌟', '👏', '🙌', '💫'];
@@ -300,13 +300,40 @@ const TodayView: React.FC<TodayViewProps> = ({
       .slice(0, 100);
   }, [tasks]);
 
+  // 入力候補: isRoutineタスクを優先表示（全フィールド補完）、次に過去タイトル
   const filteredSuggestions = useMemo(() => {
-    if (!inputValue.trim()) return [];
+    if (!inputValue.trim()) return [] as { title: string; isRoutineMatch: boolean; task?: Task }[];
     const q = inputValue.toLowerCase();
-    const pastMatches = pastTaskTitles.filter(s => s.toLowerCase().includes(q));
-    const staticMatches = commonTaskSuggestions.filter(s => s.toLowerCase().includes(q) && !pastMatches.some(p => p.toLowerCase() === s.toLowerCase()));
-    return [...pastMatches.slice(0, 8), ...staticMatches.slice(0, 3)];
-  }, [inputValue, pastTaskTitles]);
+    const result: { title: string; isRoutineMatch: boolean; task?: Task }[] = [];
+    const seen = new Set<string>();
+
+    // 1. 入力候補登録済み（isRoutine）タスクを最優先: タイトル・詳細・顧客名で部分一致
+    routineTemplates.forEach(t => {
+      const matchText = `${t.title} ${t.details || ''} ${t.customerName || ''}`.toLowerCase();
+      if (matchText.includes(q) && !seen.has(t.title.toLowerCase())) {
+        seen.add(t.title.toLowerCase());
+        result.push({ title: t.title, isRoutineMatch: true, task: t });
+      }
+    });
+
+    // 2. 過去タイトル
+    pastTaskTitles.forEach(title => {
+      if (title.toLowerCase().includes(q) && !seen.has(title.toLowerCase())) {
+        seen.add(title.toLowerCase());
+        result.push({ title, isRoutineMatch: false });
+      }
+    });
+
+    // 3. 静的候補
+    commonTaskSuggestions.forEach(s => {
+      if (s.toLowerCase().includes(q) && !seen.has(s.toLowerCase())) {
+        seen.add(s.toLowerCase());
+        result.push({ title: s, isRoutineMatch: false });
+      }
+    });
+
+    return result.slice(0, 12);
+  }, [inputValue, pastTaskTitles, routineTemplates]);
 
   // 顧客名フィルタリング
   const filteredCustomers = useMemo(() => {
@@ -498,22 +525,39 @@ const TodayView: React.FC<TodayViewProps> = ({
                      className={`w-full p-5 rounded-2xl outline-none text-xl font-black text-zinc-800 ${requiredInputStyle(inputValue)}`}
                    />
                    {showSuggestions && filteredSuggestions.length > 0 && (
-                     <div className="absolute left-0 right-0 top-full mt-3 bg-white border-2 border-zinc-50 rounded-2xl shadow-2xl z-50 py-3 overflow-hidden animate-in fade-in slide-in-from-top-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                       {filteredSuggestions.map((s, i) => {
-                         const isPast = pastTaskTitles.some(p => p === s);
-                         return (
-                           <button
-                             key={i}
-                             className="w-full text-left px-6 py-3.5 text-sm text-zinc-700 hover:bg-zinc-50 font-black border-b border-zinc-50 last:border-0 flex justify-between items-center"
-                             onClick={() => { setInputValue(s); setShowSuggestions(false); }}
-                           >
-                             <span className="truncate mr-3">{s}</span>
-                             <span className={`text-[10px] px-3 py-1 rounded-full shrink-0 font-black ${isPast ? 'bg-blue-50 text-blue-600' : 'bg-zinc-100 text-zinc-500'}`}>
-                               {isPast ? '過去入力' : 'テンプレ'}
+                     <div className="absolute left-0 right-0 top-full mt-3 bg-white border-2 border-zinc-100 rounded-2xl shadow-2xl z-50 py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 max-h-[350px] overflow-y-auto custom-scrollbar">
+                       {filteredSuggestions.map((s, i) => (
+                         <button
+                           key={i}
+                           className={`w-full text-left px-5 py-3 hover:bg-zinc-800 hover:text-white border-b border-zinc-50 last:border-0 transition-all cursor-pointer ${
+                             s.isRoutineMatch ? 'bg-blue-50/50' : ''
+                           }`}
+                           onClick={() => {
+                             setInputValue(s.title);
+                             if (s.isRoutineMatch && s.task) {
+                               // 入力候補: 全フィールドを補完
+                               setCustomerInput(s.task.customerName || '');
+                               setProjectInput(s.task.projectName || '');
+                             }
+                             setShowSuggestions(false);
+                           }}
+                         >
+                           <div className="flex justify-between items-center">
+                             <span className="text-sm font-black truncate mr-3">{s.title}</span>
+                             <span className={`text-[9px] px-2.5 py-1 rounded-full shrink-0 font-black ${
+                               s.isRoutineMatch ? 'bg-blue-500 text-white' : 'bg-zinc-100 text-zinc-500'
+                             }`}>
+                               {s.isRoutineMatch ? '入力候補' : '過去入力'}
                              </span>
-                           </button>
-                         );
-                       })}
+                           </div>
+                           {s.isRoutineMatch && s.task && (
+                             <div className="flex items-center gap-2 mt-1 text-[10px] font-bold text-zinc-400">
+                               {s.task.customerName && <span>@{s.task.customerName}</span>}
+                               {s.task.details && <span className="truncate max-w-[200px]">| {s.task.details}</span>}
+                             </div>
+                           )}
+                         </button>
+                       ))}
                      </div>
                    )}
                  </div>
@@ -585,7 +629,7 @@ const TodayView: React.FC<TodayViewProps> = ({
         </div>
       </div>
 
-      {/* 定型タスク ワンタップ追加 */}
+      {/* 入力候補（ワンタップ追加） */}
       {routineTemplates.length > 0 && (
         <div className="w-full max-w-3xl mb-8">
           <button
@@ -593,7 +637,7 @@ const TodayView: React.FC<TodayViewProps> = ({
             className="flex items-center space-x-2 mb-4 px-3 group"
           >
             <svg className={`w-3 h-3 text-blue-500 transition-transform ${showRoutines ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            <span className="text-[11px] font-black text-blue-600 tracking-widest group-hover:text-blue-800 transition-colors">定型タスク（ワンタップ追加）</span>
+            <span className="text-[11px] font-black text-blue-600 tracking-widest group-hover:text-blue-800 transition-colors">入力候補（ワンタップ追加）</span>
             <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-black">{routineTemplates.length}</span>
           </button>
           {showRoutines && (
@@ -705,6 +749,13 @@ const TodayView: React.FC<TodayViewProps> = ({
                   <div className="text-right hidden sm:block">
                     <div className={`text-xl font-mono font-black ${isActive ? 'text-zinc-900' : 'text-zinc-600'}`}>{formatStopwatch(task.timeSpent)}</div>
                     <div className="text-[9px] text-zinc-400 font-black tracking-widest">実績時間</div>
+                    {(task.timerStartedAt || task.timerStoppedAt) && (
+                      <div className="text-[9px] font-mono font-bold text-blue-500 mt-0.5">
+                        {task.timerStartedAt && <span>{task.timerStartedAt}</span>}
+                        {task.timerStartedAt && task.timerStoppedAt && <span> → </span>}
+                        {task.timerStoppedAt && <span>{task.timerStoppedAt}</span>}
+                      </div>
+                    )}
                   </div>
                   {!task.completed && (
                     <button 
@@ -732,6 +783,31 @@ const TodayView: React.FC<TodayViewProps> = ({
                       placeholder="タスクの詳細やプロセスを入力..."
                       className="w-full bg-white border-2 border-blue-200 rounded-xl p-3 text-sm font-bold text-zinc-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 min-h-[80px] resize-y placeholder:text-zinc-400"
                     />
+
+                    {/* 検出されたアクションショートカット */}
+                    {(() => {
+                      const shortcuts = extractActionShortcuts(task.title, task.details);
+                      if (shortcuts.length === 0) return null;
+                      return (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {shortcuts.map(sc => (
+                            <a
+                              key={sc.name}
+                              href={sc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border-2 border-blue-300 rounded-full text-[10px] font-black text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all cursor-pointer shadow-sm"
+                              title={`${sc.name} を開く`}
+                            >
+                              <span>{sc.icon}</span>
+                              <span>{sc.name}</span>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </a>
+                          ))}
+                        </div>
+                      );
+                    })()}
+
                     <div className="mt-3 flex justify-between items-center">
                        <div className="text-left sm:hidden">
                          <div className="text-[9px] text-zinc-400 font-black tracking-widest mb-1">実績時間</div>
@@ -766,14 +842,14 @@ const TodayView: React.FC<TodayViewProps> = ({
                              onClick={() => setRoutineFreqPicker(task.id)}
                              className="text-[10px] font-black text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-full transition-all flex items-center space-x-1.5 ml-auto border-2 border-blue-200 hover:border-blue-600 cursor-pointer active:scale-95 shadow-sm"
                            >
-                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                             <span>定型タスクとして保存</span>
+                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                             <span>入力候補に登録</span>
                            </button>
                          )
                        ) : (
                          <span className="text-[10px] font-black text-blue-500 flex items-center space-x-1 ml-auto bg-blue-50 px-2 py-1 rounded-full">
-                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                           <span>定型タスク{task.tags.includes('daily') ? ' (毎日)' : task.tags.includes('weekly') ? ' (毎週)' : task.tags.includes('monthly') ? ' (毎月)' : ''}</span>
+                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                           <span>入力候補{task.tags.includes('daily') ? ' (毎日)' : task.tags.includes('weekly') ? ' (毎週)' : task.tags.includes('monthly') ? ' (毎月)' : ''}</span>
                          </span>
                        )}
                     </div>

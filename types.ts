@@ -32,6 +32,8 @@ export interface Task {
   isRoutine?: boolean;
   sourceEmailId?: string;
   workflowAnswers?: WorkflowState;
+  timerStartedAt?: string;
+  timerStoppedAt?: string;
 }
 
 export interface WorkflowStep {

@@ -44,6 +44,42 @@ export const SOFTWARE_LAUNCHERS: Record<string, { name: string; protocol: string
   'Gmail': { name: 'Gmail', protocol: 'https://mail.google.com', icon: '📧' },
 };
 
+// 業務アクションショートカット（タスク詳細テキストからツール連携を自動検出）
+export const ACTION_SHORTCUTS: Record<string, { name: string; url: string; icon: string; toolId?: string }> = {
+  '基幹': { name: '基幹システム', url: 'https://rwjhpfghhgstvplmggks.supabase.co', icon: '🏢', toolId: 'erp' },
+  'ERP': { name: '基幹システム', url: 'https://rwjhpfghhgstvplmggks.supabase.co', icon: '🏢', toolId: 'erp' },
+  'メール': { name: 'Gmail', url: 'https://mail.google.com', icon: '📧', toolId: 'gmail' },
+  '連絡': { name: 'Gmail', url: 'https://mail.google.com', icon: '📧', toolId: 'gmail' },
+  '送信': { name: 'Gmail', url: 'https://mail.google.com', icon: '📧', toolId: 'gmail' },
+  'ダウンロード': { name: 'Google Drive', url: 'https://drive.google.com', icon: '📥', toolId: 'drive' },
+  'アップロード': { name: 'Google Drive', url: 'https://drive.google.com', icon: '📤', toolId: 'drive' },
+  'ドライブ': { name: 'Google Drive', url: 'https://drive.google.com', icon: '📁', toolId: 'drive' },
+  'スプレッドシート': { name: 'Google Sheets', url: 'https://docs.google.com/spreadsheets', icon: '📊', toolId: 'sheets' },
+  'シート': { name: 'Google Sheets', url: 'https://docs.google.com/spreadsheets', icon: '📊', toolId: 'sheets' },
+  'スライド': { name: 'Google Slides', url: 'https://docs.google.com/presentation', icon: '📽️', toolId: 'slides' },
+  'カレンダー': { name: 'Google Calendar', url: 'https://calendar.google.com', icon: '📅', toolId: 'calendar' },
+  '予定': { name: 'Google Calendar', url: 'https://calendar.google.com', icon: '📅', toolId: 'calendar' },
+  'Slack': { name: 'Slack', url: 'slack://', icon: '💬', toolId: 'slack' },
+  '見積': { name: '見積書作成', url: 'ms-excel:', icon: '💰', toolId: 'sheets' },
+  '請求': { name: '請求書作成', url: 'ms-excel:', icon: '💰', toolId: 'sheets' },
+  '印刷': { name: '印刷管理', url: 'https://rwjhpfghhgstvplmggks.supabase.co', icon: '🖨️', toolId: 'erp' },
+  '校正': { name: '校正ツール', url: 'illustrator://', icon: '🔍', toolId: 'erp' },
+};
+
+// タスク詳細テキストからアクションショートカットを抽出
+export const extractActionShortcuts = (title: string, details?: string) => {
+  const text = `${title} ${details || ''}`;
+  const matched: { name: string; url: string; icon: string; toolId?: string; keyword: string }[] = [];
+  const seen = new Set<string>();
+  for (const [keyword, cfg] of Object.entries(ACTION_SHORTCUTS)) {
+    if (text.includes(keyword) && !seen.has(cfg.name)) {
+      seen.add(cfg.name);
+      matched.push({ ...cfg, keyword });
+    }
+  }
+  return matched;
+};
+
 // 共有ユーティリティ関数
 export const extractCategories = (title: string, details?: string) => {
   const text = `${title} ${details || ''}`;
