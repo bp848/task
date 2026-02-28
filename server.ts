@@ -248,17 +248,23 @@ app.get('/api/drive/files', requireAuth, async (req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.error('[STARTUP] Vite not available, falling back to static:', e);
+      app.use(express.static('dist'));
+    }
   } else {
+    const path = await import('path');
     app.use(express.static('dist'));
     // SPA fallback
     app.get('*', (_req, res) => {
-      res.sendFile('index.html', { root: 'dist' });
+      res.sendFile(path.default.resolve('dist', 'index.html'));
     });
   }
 

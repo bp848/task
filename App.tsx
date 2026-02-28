@@ -24,7 +24,7 @@ const viewTitleMap: Record<ViewType, string> = {
   'planner': '週次計画',
   'schedule': 'タイムライン',
   'metrics': '業務分析',
-  'habits': '習慣管理',
+  'habits': 'ルーティン管理',
   'settings': '設定',
   'project-detail': 'プロジェクト詳細',
   'task-view': '作業ベース',
@@ -361,7 +361,9 @@ const App: React.FC = () => {
       case 'metrics':
         return <MetricsView tasks={tasks} />;
       case 'habits':
-        return <HabitsView session={session} />;
+        return <HabitsView session={session} onAddTaskToPlanner={(title: string, date: string, startTime?: string, estimatedMinutes?: number, customerName?: string, projectName?: string) => {
+          handleAddTask(title, 'p1', [], (estimatedMinutes || 30) * 60, date, startTime, true, customerName, projectName);
+        }} />;
       case 'settings':
         return <SettingsView session={session} onSettingsChange={(s) => setAppSettings({
           psychedelic_mode: s.psychedelic_mode, ai_persona: s.ai_persona, auto_memo: s.auto_memo,

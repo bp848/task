@@ -71,5 +71,13 @@ export interface Habit {
   id: string;
   title: string;
   streak: number;
-  completedDays: string[]; 
+  completedDays: string[];
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  time?: string;        // HH:mm format
+  dayOfWeek?: number;   // 0=Sun, 1=Mon, ..., 6=Sat (for weekly)
+  dayOfMonth?: number;  // 1-31 (for monthly)
+  monthOfYear?: number; // 1-12 (for yearly)
+  estimatedMinutes?: number;
+  customerName?: string;
+  projectName?: string;
 }

@@ -9,6 +9,14 @@ interface DbHabit {
   title: string;
   streak: number;
   created_at: string;
+  frequency: string;
+  time: string | null;
+  day_of_week: number | null;
+  day_of_month: number | null;
+  month_of_year: number | null;
+  estimated_minutes: number | null;
+  customer_name: string | null;
+  project_name: string | null;
 }
 
 interface DbHabitLog {
@@ -71,6 +79,14 @@ export function useHabits(session: Session | null) {
         title: h.title,
         streak,
         completedDays,
+        frequency: (h.frequency || 'daily') as Habit['frequency'],
+        time: h.time || undefined,
+        dayOfWeek: h.day_of_week ?? undefined,
+        dayOfMonth: h.day_of_month ?? undefined,
+        monthOfYear: h.month_of_year ?? undefined,
+        estimatedMinutes: h.estimated_minutes ?? undefined,
+        customerName: h.customer_name || undefined,
+        projectName: h.project_name || undefined,
       };
     });
 
@@ -82,12 +98,34 @@ export function useHabits(session: Session | null) {
     fetchHabits();
   }, [fetchHabits]);
 
-  const addHabit = useCallback(async (title: string): Promise<Habit | null> => {
+  const addHabit = useCallback(async (title: string, options?: {
+    frequency?: Habit['frequency'];
+    time?: string;
+    dayOfWeek?: number;
+    dayOfMonth?: number;
+    monthOfYear?: number;
+    estimatedMinutes?: number;
+    customerName?: string;
+    projectName?: string;
+  }): Promise<Habit | null> => {
     if (!userId) return null;
+
+    const insertData: Record<string, unknown> = {
+      user_id: userId,
+      title: title.trim(),
+      frequency: options?.frequency || 'daily',
+    };
+    if (options?.time) insertData.time = options.time;
+    if (options?.dayOfWeek !== undefined) insertData.day_of_week = options.dayOfWeek;
+    if (options?.dayOfMonth !== undefined) insertData.day_of_month = options.dayOfMonth;
+    if (options?.monthOfYear !== undefined) insertData.month_of_year = options.monthOfYear;
+    if (options?.estimatedMinutes) insertData.estimated_minutes = options.estimatedMinutes;
+    if (options?.customerName) insertData.customer_name = options.customerName;
+    if (options?.projectName) insertData.project_name = options.projectName;
 
     const { data, error } = await supabase
       .from('habits')
-      .insert({ user_id: userId, title: title.trim() })
+      .insert(insertData)
       .select()
       .single();
 
@@ -101,6 +139,14 @@ export function useHabits(session: Session | null) {
       title: data.title,
       streak: 0,
       completedDays: [],
+      frequency: (data.frequency || 'daily') as Habit['frequency'],
+      time: data.time || undefined,
+      dayOfWeek: data.day_of_week ?? undefined,
+      dayOfMonth: data.day_of_month ?? undefined,
+      monthOfYear: data.month_of_year ?? undefined,
+      estimatedMinutes: data.estimated_minutes ?? undefined,
+      customerName: data.customer_name || undefined,
+      projectName: data.project_name || undefined,
     };
     setHabits(prev => [...prev, newHabit]);
     return newHabit;

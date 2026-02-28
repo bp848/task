@@ -226,6 +226,35 @@ ${settings.email_signature}`}
            </section>
 
            <section>
+              <h3 className="text-[11px] font-black text-zinc-300 uppercase tracking-widest mb-6 border-b border-zinc-100 pb-2">改善履歴</h3>
+              <div className="space-y-3">
+                {[
+                  { ver: 'v2.5', date: '2026-02-28', items: ['「習慣管理」→「ルーティン管理」に名称変更', 'ルーティンに頻度（毎日/毎週/毎月/毎年）・時刻・曜日・日付を細かく設定可能に', 'ルーティンからプランへワンタップ追加', 'タスク詳細の構造化ステップ表示（チェックリスト+ツール連携）', '担当者フィールドを削除（@メンション方式へ移行予定）', '「入力候補」ラベルを「テンプレート」に統一', '改善履歴一覧を追加（この画面）'] },
+                  { ver: 'v2.4', date: '2026-02-27', items: ['AIワークハブにタブ制導入（STEPS / AI TOOLS）', 'ワークフローウィザード（Q&A方式）を実装', 'タスクにワークフロー回答を保存（JSONB）', '顧客別・カテゴリ別サマリ表示を追加', 'テンプレート（ワンタップ追加）機能'] },
+                  { ver: 'v2.3', date: '2026-02-26', items: ['Supabase統合（bp-erp基幹DB）', 'リアルタイム同期（タスク・習慣）', 'Gmail/カレンダー連携', 'Google OAuth認証', 'メール→タスク変換', '日報メール自動生成'] },
+                  { ver: 'v2.0', date: '2026-02-25', items: ['ZenWork Mini 初回リリース', '本日の業務・週次計画・タイムライン', '業務分析ダッシュボード', 'AIアシスタント（Gemini）', '受信トレイ・設定画面'] },
+                ].map(release => (
+                  <div key={release.ver} className="p-4 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <span className="text-xs font-black text-zinc-800 bg-zinc-100 px-2.5 py-1 rounded-lg">{release.ver}</span>
+                      <span className="text-[10px] font-bold text-zinc-400">{release.date}</span>
+                    </div>
+                    <ul className="space-y-1.5">
+                      {release.items.map((item, i) => (
+                        <li key={i} className="flex items-start space-x-2">
+                          <span className="text-emerald-500 mt-0.5 shrink-0">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"/></svg>
+                          </span>
+                          <span className="text-xs font-bold text-zinc-600">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+           </section>
+
+           <section>
               <h3 className="text-[11px] font-black text-zinc-300 uppercase tracking-widest mb-6 border-b border-zinc-100 pb-2">ユーザーインターフェース</h3>
               <div className="space-y-6">
                  <div className="flex items-center justify-between p-5 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
