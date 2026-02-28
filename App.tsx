@@ -47,7 +47,10 @@ const App: React.FC = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [isGoogleConnected, setIsGoogleConnected] = useState(false);
-  const [appSettings, setAppSettings] = useState<{ psychedelic_mode?: boolean; ai_persona?: string; auto_memo?: boolean }>({});
+  const [appSettings, setAppSettings] = useState<{
+    psychedelic_mode?: boolean; ai_persona?: string; auto_memo?: boolean;
+    email_recipient?: string; email_sender_name?: string; email_sender_company?: string; email_signature?: string;
+  }>({});
   const [clockTime, setClockTime] = useState(new Date());
   const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
 
@@ -81,8 +84,12 @@ const App: React.FC = () => {
       if (session) {
         setIsGoogleConnected(true);
         // Load settings on session init
-        supabase.from('zenwork_settings').select('psychedelic_mode,ai_persona,auto_memo').eq('user_id', session.user.id).single()
-          .then(({ data }) => { if (data) setAppSettings({ psychedelic_mode: data.psychedelic_mode, ai_persona: data.ai_persona, auto_memo: data.auto_memo }); });
+        supabase.from('zenwork_settings').select('*').eq('user_id', session.user.id).single()
+          .then(({ data }) => { if (data) setAppSettings({
+            psychedelic_mode: data.psychedelic_mode, ai_persona: data.ai_persona, auto_memo: data.auto_memo,
+            email_recipient: data.email_recipient, email_sender_name: data.email_sender_name,
+            email_sender_company: data.email_sender_company, email_signature: data.email_signature,
+          }); });
         supabase.from('customers').select('customer_name').not('customer_name', 'is', null).order('customer_name')
           .then(({ data }) => { if (data) setCustomerSuggestions(data.map((r: { customer_name: string }) => r.customer_name).filter(Boolean)); });
         // Fetch Google data on initial load
@@ -276,6 +283,12 @@ const App: React.FC = () => {
             targetDate={targetDate}
             setTargetDate={setTargetDate}
             customerSuggestions={customerSuggestions}
+            emailFormat={{
+              recipient: appSettings.email_recipient,
+              senderName: appSettings.email_sender_name,
+              senderCompany: appSettings.email_sender_company,
+              signature: appSettings.email_signature,
+            }}
           />
         );
       case 'inbox':
@@ -296,7 +309,11 @@ const App: React.FC = () => {
       case 'habits':
         return <HabitsView session={session} />;
       case 'settings':
-        return <SettingsView session={session} onSettingsChange={(s) => setAppSettings({ psychedelic_mode: s.psychedelic_mode, ai_persona: s.ai_persona, auto_memo: s.auto_memo })} />;
+        return <SettingsView session={session} onSettingsChange={(s) => setAppSettings({
+          psychedelic_mode: s.psychedelic_mode, ai_persona: s.ai_persona, auto_memo: s.auto_memo,
+          email_recipient: s.email_recipient, email_sender_name: s.email_sender_name,
+          email_sender_company: s.email_sender_company, email_signature: s.email_signature,
+        })} />;
       default:
         return null;
     }

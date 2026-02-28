@@ -15,6 +15,10 @@ export interface Settings {
   auto_memo: boolean;
   dark_mode: boolean;
   psychedelic_mode: boolean;
+  email_recipient: string;
+  email_sender_name: string;
+  email_sender_company: string;
+  email_signature: string;
 }
 
 export const defaultSettings: Settings = {
@@ -24,6 +28,17 @@ export const defaultSettings: Settings = {
   auto_memo: true,
   dark_mode: false,
   psychedelic_mode: false,
+  email_recipient: '橋本社長',
+  email_sender_name: '三神',
+  email_sender_company: 'CSG',
+  email_signature: `**************************************************
+文唱堂印刷株式会社
+三神 杏友
+
+〒101-0025
+東京都千代田区神田佐久間町3-37
+Tel.03-3851-0111
+**************************************************`,
 };
 
 const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }) => {
@@ -47,6 +62,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }
             auto_memo: data.auto_memo ?? defaultSettings.auto_memo,
             dark_mode: data.dark_mode ?? defaultSettings.dark_mode,
             psychedelic_mode: data.psychedelic_mode ?? defaultSettings.psychedelic_mode,
+            email_recipient: data.email_recipient ?? defaultSettings.email_recipient,
+            email_sender_name: data.email_sender_name ?? defaultSettings.email_sender_name,
+            email_sender_company: data.email_sender_company ?? defaultSettings.email_sender_company,
+            email_signature: data.email_signature ?? defaultSettings.email_signature,
           };
           setSettings(loaded);
           onSettingsChange?.(loaded);
@@ -146,6 +165,63 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }
                       ))}
                     </div>
                  </div>
+              </div>
+           </section>
+
+           <section>
+              <h3 className="text-[11px] font-black text-zinc-300 uppercase tracking-widest mb-6 border-b border-zinc-100 pb-2">日報メールフォーマット</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                    <label className="text-[10px] font-black text-zinc-400 tracking-widest mb-2 block">宛先名</label>
+                    <input
+                      value={settings.email_recipient}
+                      onChange={(e) => updateSetting('email_recipient', e.target.value)}
+                      className="w-full bg-zinc-50 border-2 border-zinc-200 text-sm p-3 rounded-xl outline-none font-bold text-zinc-800 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+                    />
+                  </div>
+                  <div className="p-4 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                    <label className="text-[10px] font-black text-zinc-400 tracking-widest mb-2 block">差出人名</label>
+                    <input
+                      value={settings.email_sender_name}
+                      onChange={(e) => updateSetting('email_sender_name', e.target.value)}
+                      className="w-full bg-zinc-50 border-2 border-zinc-200 text-sm p-3 rounded-xl outline-none font-bold text-zinc-800 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+                    />
+                  </div>
+                </div>
+                <div className="p-4 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                  <label className="text-[10px] font-black text-zinc-400 tracking-widest mb-2 block">会社名（挨拶文用）</label>
+                  <input
+                    value={settings.email_sender_company}
+                    onChange={(e) => updateSetting('email_sender_company', e.target.value)}
+                    placeholder="例: CSG"
+                    className="w-full bg-zinc-50 border-2 border-zinc-200 text-sm p-3 rounded-xl outline-none font-bold text-zinc-800 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100"
+                  />
+                </div>
+                <div className="p-4 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                  <label className="text-[10px] font-black text-zinc-400 tracking-widest mb-2 block">メール署名</label>
+                  <textarea
+                    value={settings.email_signature}
+                    onChange={(e) => updateSetting('email_signature', e.target.value)}
+                    className="w-full bg-zinc-50 border-2 border-zinc-200 text-xs p-3 rounded-xl outline-none font-mono font-bold text-zinc-700 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100 min-h-[120px] resize-y"
+                  />
+                </div>
+                <div className="bg-zinc-50 rounded-2xl p-4 border-2 border-zinc-100">
+                  <p className="text-[10px] font-black text-zinc-400 tracking-widest mb-2">プレビュー</p>
+                  <div className="text-xs font-mono text-zinc-700 whitespace-pre-wrap bg-white rounded-xl p-4 border border-zinc-200">
+{`${settings.email_recipient}
+
+いつもありがとうございます。
+${settings.email_sender_company}の${settings.email_sender_name}です。
+
+○月○日の業務報告です。
+
+■09:00–10:00
+・タスク例（顧客名様）
+
+${settings.email_signature}`}
+                  </div>
+                </div>
               </div>
            </section>
 
