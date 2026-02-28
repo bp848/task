@@ -300,14 +300,14 @@ const TodayView: React.FC<TodayViewProps> = ({
       .slice(0, 100);
   }, [tasks]);
 
-  // 入力候補: isRoutineタスクを優先表示（全フィールド補完）、次に過去タイトル
+  // テンプレート: isRoutineタスクを優先表示（全フィールド補完）、次に過去タイトル
   const filteredSuggestions = useMemo(() => {
     if (!inputValue.trim()) return [] as { title: string; isRoutineMatch: boolean; task?: Task }[];
     const q = inputValue.toLowerCase();
     const result: { title: string; isRoutineMatch: boolean; task?: Task }[] = [];
     const seen = new Set<string>();
 
-    // 1. 入力候補登録済み（isRoutine）タスクを最優先: タイトル・詳細・顧客名で部分一致
+    // 1. テンプレート登録済み（isRoutine）タスクを最優先: タイトル・詳細・顧客名で部分一致
     routineTemplates.forEach(t => {
       const matchText = `${t.title} ${t.details || ''} ${t.customerName || ''}`.toLowerCase();
       if (matchText.includes(q) && !seen.has(t.title.toLowerCase())) {
@@ -535,7 +535,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                            onClick={() => {
                              setInputValue(s.title);
                              if (s.isRoutineMatch && s.task) {
-                               // 入力候補: 全フィールドを補完
+                               // テンプレート: 全フィールドを補完
                                setCustomerInput(s.task.customerName || '');
                                setProjectInput(s.task.projectName || '');
                              }
@@ -547,7 +547,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                              <span className={`text-[9px] px-2.5 py-1 rounded-full shrink-0 font-black ${
                                s.isRoutineMatch ? 'bg-blue-500 text-white' : 'bg-zinc-100 text-zinc-500'
                              }`}>
-                               {s.isRoutineMatch ? '入力候補' : '過去入力'}
+                               {s.isRoutineMatch ? 'テンプレート' : '過去入力'}
                              </span>
                            </div>
                            {s.isRoutineMatch && s.task && (
@@ -629,7 +629,7 @@ const TodayView: React.FC<TodayViewProps> = ({
         </div>
       </div>
 
-      {/* 入力候補（ワンタップ追加） */}
+      {/* テンプレート（ワンタップ追加） */}
       {routineTemplates.length > 0 && (
         <div className="w-full max-w-3xl mb-8">
           <button
@@ -637,7 +637,7 @@ const TodayView: React.FC<TodayViewProps> = ({
             className="flex items-center space-x-2 mb-4 px-3 group"
           >
             <svg className={`w-3 h-3 text-blue-500 transition-transform ${showRoutines ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-            <span className="text-[11px] font-black text-blue-600 tracking-widest group-hover:text-blue-800 transition-colors">入力候補（ワンタップ追加）</span>
+            <span className="text-[11px] font-black text-blue-600 tracking-widest group-hover:text-blue-800 transition-colors">テンプレート（ワンタップ追加）</span>
             <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-black">{routineTemplates.length}</span>
           </button>
           {showRoutines && (
@@ -725,14 +725,6 @@ const TodayView: React.FC<TodayViewProps> = ({
                     {task.customerName && <span className="text-slate-500 tracking-tighter">@{task.customerName}</span>}
                     {task.projectName && <span className="text-slate-300 hidden sm:inline">|</span>}
                     {task.projectName && <span className="text-slate-400 tracking-tighter">{task.projectName}</span>}
-                    {task.assignees && task.assignees.length > 0 && (
-                      <>
-                        <span className="text-slate-300 hidden sm:inline">|</span>
-                        {task.assignees.map(a => (
-                          <span key={a} className="text-indigo-600 tracking-tighter">@{a}</span>
-                        ))}
-                      </>
-                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {extractCategories(task.title, task.details).map(cat => (
@@ -784,40 +776,6 @@ const TodayView: React.FC<TodayViewProps> = ({
               {isSelected && (
                 <div className="mt-4 pt-4 border-t border-slate-200 animate-in fade-in slide-in-from-top-2">
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    {/* 担当者・登場人物 */}
-                    <div className="mb-3">
-                      <h4 className="text-[10px] font-black text-indigo-700 tracking-widest mb-1.5">担当者・登場人物</h4>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {(task.assignees || []).map(a => (
-                          <span key={a} className="flex items-center gap-1 bg-indigo-100 text-indigo-800 text-[10px] font-black px-2.5 py-1 rounded-lg">
-                            @{a}
-                            <button
-                              onClick={() => onUpdateTask(task.id, { assignees: (task.assignees || []).filter(x => x !== a) })}
-                              className="text-indigo-400 hover:text-red-500 ml-0.5 cursor-pointer"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
-                          </span>
-                        ))}
-                        <input
-                          placeholder="@名前を追加..."
-                          className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-[11px] font-bold text-slate-800 outline-none focus:border-indigo-400 w-28 placeholder:text-slate-400"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const val = (e.target as HTMLInputElement).value.replace(/^@/, '').trim();
-                              if (val) {
-                                const current = task.assignees || [];
-                                if (!current.includes(val)) {
-                                  onUpdateTask(task.id, { assignees: [...current, val] });
-                                }
-                                (e.target as HTMLInputElement).value = '';
-                              }
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
-
                     <h4 className="text-[10px] font-black text-indigo-700 tracking-widest mb-1.5">プロセス・詳細メモ</h4>
                     <textarea
                       value={task.details || ''}
@@ -885,13 +843,13 @@ const TodayView: React.FC<TodayViewProps> = ({
                              className="text-[10px] font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-700 hover:text-white px-3 py-1.5 rounded-lg transition-all flex items-center space-x-1.5 ml-auto border border-indigo-200 hover:border-indigo-700 cursor-pointer active:scale-95 shadow-sm"
                            >
                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                             <span>入力候補に登録</span>
+                             <span>テンプレート保存</span>
                            </button>
                          )
                        ) : (
                          <span className="text-[10px] font-black text-indigo-600 flex items-center space-x-1 ml-auto bg-indigo-50 px-2 py-1 rounded-lg">
                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                           <span>入力候補{task.tags.includes('daily') ? ' (毎日)' : task.tags.includes('weekly') ? ' (毎週)' : task.tags.includes('monthly') ? ' (毎月)' : ''}</span>
+                           <span>テンプレート{task.tags.includes('daily') ? ' (毎日)' : task.tags.includes('weekly') ? ' (毎週)' : task.tags.includes('monthly') ? ' (毎月)' : ''}</span>
                          </span>
                        )}
                     </div>

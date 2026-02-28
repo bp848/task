@@ -56,6 +56,13 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
     return;
   }
 
+  // Check Google OAuth config
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.error('[AUTH] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured');
+    res.status(500).json({ error: 'Server Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.' });
+    return;
+  }
+
   // Create OAuth2 client with the stored tokens
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -101,6 +108,19 @@ const requireAuth = async (req: express.Request, res: express.Response, next: ex
   (req as any).userId = user.id;
   next();
 };
+
+// --- Health check ---
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    config: {
+      supabaseUrl: !!supabaseUrl,
+      supabaseKey: !!(supabaseServiceKey || supabaseAnonKey),
+      googleClientId: !!process.env.GOOGLE_CLIENT_ID,
+      googleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+    },
+  });
+});
 
 // --- API Routes ---
 
@@ -236,7 +256,17 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static('dist'));
+    // SPA fallback
+    app.get('*', (_req, res) => {
+      res.sendFile('index.html', { root: 'dist' });
+    });
   }
+
+  // Startup config check
+  console.log('[CONFIG] GOOGLE_CLIENT_ID:', !!process.env.GOOGLE_CLIENT_ID);
+  console.log('[CONFIG] GOOGLE_CLIENT_SECRET:', !!process.env.GOOGLE_CLIENT_SECRET);
+  console.log('[CONFIG] SUPABASE_URL:', !!supabaseUrl);
+  console.log('[CONFIG] SUPABASE_KEY:', !!(supabaseServiceKey || supabaseAnonKey));
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);

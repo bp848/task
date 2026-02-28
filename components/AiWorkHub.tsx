@@ -1,9 +1,8 @@
 
 import { GoogleGenAI } from "@google/genai";
 import React, { useEffect, useState, useMemo } from 'react';
-import { Task, WorkflowAnswer, WorkflowState } from '../types';
-import { getWorkflowTemplate } from '../workflowTemplates';
-import { extractActionShortcuts } from '../constants';
+import { Task } from '../types';
+import { extractActionShortcuts, ACTION_SHORTCUTS } from '../constants';
 
 interface AiWorkHubProps {
   task: Task | null;
@@ -16,7 +15,7 @@ interface AiWorkHubProps {
 }
 
 type ToolType = 'gmail' | 'sheets' | 'slack' | 'drive' | null;
-type TabType = 'workflow' | 'tools' | 'analysis';
+type TabType = 'steps' | 'tools' | 'analysis';
 
 // ペルソナ別のシステムプロンプト
 const PERSONA_PROMPTS: Record<string, string> = {
@@ -86,178 +85,118 @@ const buildTimeGroupedTaskList = (tasks: Task[]): string => {
     .join('\n');
 };
 
-// --- Workflow Wizard sub-component ---
-const WorkflowWizard: React.FC<{
+// --- タスク詳細テキストからアクションステップを抽出 ---
+const parseActionSteps = (title: string, details?: string): { text: string; tool?: { name: string; url: string; icon: string } }[] => {
+  const steps: { text: string; tool?: { name: string; url: string; icon: string } }[] = [];
+  const fullText = details || title;
+
+  // 「・」「、」「,」「/」「→」「⇒」で分割 or 改行で分割
+  const parts = fullText.split(/[・、,\/→⇒\n]+/).map(s => s.trim()).filter(Boolean);
+
+  if (parts.length <= 1 && fullText.trim()) {
+    // 分割できなかった場合はタイトル全体を1ステップとして扱う
+    // ただしキーワードで個別アクションを検出
+    const shortcuts = extractActionShortcuts(title, details);
+    if (shortcuts.length > 0) {
+      shortcuts.forEach(sc => {
+        steps.push({ text: `${sc.keyword}`, tool: { name: sc.name, url: sc.url, icon: sc.icon } });
+      });
+    } else {
+      steps.push({ text: fullText.trim() });
+    }
+    return steps;
+  }
+
+  parts.forEach(part => {
+    // 各パートにマッチするツールを探す
+    let matchedTool: { name: string; url: string; icon: string } | undefined;
+    for (const [keyword, cfg] of Object.entries(ACTION_SHORTCUTS)) {
+      if (part.includes(keyword)) {
+        matchedTool = { name: cfg.name, url: cfg.url, icon: cfg.icon };
+        break;
+      }
+    }
+    steps.push({ text: part, tool: matchedTool });
+  });
+
+  return steps;
+};
+
+// --- Structured Steps sub-component ---
+const StructuredSteps: React.FC<{
   task: Task;
   onUpdateTask?: (id: string, updates: Partial<Task>) => void;
 }> = ({ task, onUpdateTask }) => {
-  const template = useMemo(() => getWorkflowTemplate(task.title, task.details), [task.title, task.details]);
-  const [answers, setAnswers] = useState<WorkflowAnswer[]>([]);
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [freeText, setFreeText] = useState('');
+  const steps = useMemo(() => parseActionSteps(task.title, task.details), [task.title, task.details]);
+  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
 
-  // Load existing answers when task changes
   useEffect(() => {
-    if (task.workflowAnswers?.steps?.length) {
-      setAnswers(task.workflowAnswers.steps);
-      const nextIdx = task.workflowAnswers.steps.length;
-      setCurrentStepIndex(nextIdx >= template.steps.length ? template.steps.length : nextIdx);
-    } else {
-      setAnswers([]);
-      setCurrentStepIndex(0);
-    }
-    setFreeText('');
+    setCheckedSteps(new Set());
   }, [task.id]);
 
-  const handleAnswer = (answer: string) => {
-    const step = template.steps[currentStepIndex];
-    if (!step) return;
-
-    const newAnswer: WorkflowAnswer = {
-      stepId: step.stepId,
-      question: step.question,
-      answer,
-      answeredAt: new Date().toISOString(),
-    };
-
-    const updatedAnswers = [...answers, newAnswer];
-    setAnswers(updatedAnswers);
-    setCurrentStepIndex(currentStepIndex + 1);
-    setFreeText('');
-
-    // Persist
-    const state: WorkflowState = {
-      category: template.category,
-      steps: updatedAnswers,
-    };
-    onUpdateTask?.(task.id, { workflowAnswers: state });
+  const toggleStep = (index: number) => {
+    setCheckedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
   };
 
-  const handleReAnswer = (index: number) => {
-    const sliced = answers.slice(0, index);
-    setAnswers(sliced);
-    setCurrentStepIndex(index);
-    setFreeText('');
-
-    const state: WorkflowState = {
-      category: template.category,
-      steps: sliced,
-    };
-    onUpdateTask?.(task.id, { workflowAnswers: state });
-  };
-
-  const handleReset = () => {
-    setAnswers([]);
-    setCurrentStepIndex(0);
-    setFreeText('');
-    onUpdateTask?.(task.id, { workflowAnswers: undefined });
-  };
-
-  const isComplete = currentStepIndex >= template.steps.length;
-  const currentStep = template.steps[currentStepIndex];
+  const allChecked = steps.length > 0 && checkedSteps.size === steps.length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xs font-black text-zinc-400 bg-zinc-50 px-2 py-1 rounded-full">
-          {template.category === 'default' ? 'General' : template.category}
-        </span>
-        <span className="text-[10px] text-zinc-300 font-bold">
-          {answers.length}/{template.steps.length} 回答済み
-        </span>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-black text-zinc-500 tracking-widest">作業ステップ</span>
+        <span className="text-[10px] text-zinc-300 font-black">{checkedSteps.size}/{steps.length}</span>
       </div>
 
-      {/* Answered questions - scrollable history */}
-      {answers.map((a, i) => (
-        <button
-          key={a.stepId}
-          onClick={() => handleReAnswer(i)}
-          className="w-full text-left group"
+      {steps.map((step, i) => (
+        <div
+          key={i}
+          className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all ${
+            checkedSteps.has(i)
+              ? 'bg-zinc-50 border-zinc-100 opacity-60'
+              : 'bg-white border-zinc-200 shadow-sm'
+          }`}
         >
-          <div className="bg-zinc-50/50 rounded-xl p-3 border border-zinc-100 hover:border-zinc-300 transition-all">
-            <div className="text-[10px] text-zinc-400 font-bold mb-1">{a.question}</div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-zinc-800 bg-zinc-100 px-3 py-1 rounded-full">
-                {a.answer}
-              </span>
-              <span className="text-[9px] text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity">
-                click to redo
-              </span>
+          <button
+            onClick={() => toggleStep(i)}
+            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer ${
+              checkedSteps.has(i)
+                ? 'bg-zinc-800 border-zinc-800 text-white'
+                : 'border-zinc-300 hover:border-zinc-600'
+            }`}
+          >
+            {checkedSteps.has(i) && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
+            )}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className={`text-sm font-black ${checkedSteps.has(i) ? 'line-through text-zinc-400' : 'text-zinc-800'}`}>
+              <span className="text-zinc-300 mr-2">{i + 1}.</span>
+              {step.text}
             </div>
+            {step.tool && (
+              <a
+                href={step.tool.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-[10px] font-black text-indigo-700 hover:bg-indigo-700 hover:text-white hover:border-indigo-700 transition-all cursor-pointer"
+              >
+                <span>{step.tool.icon}</span>
+                <span>{step.tool.name}を開く</span>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            )}
           </div>
-        </button>
+        </div>
       ))}
 
-      {/* Current question */}
-      {!isComplete && currentStep && (
-        <div className="bg-white rounded-2xl p-4 border-2 border-zinc-200 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="text-sm font-black text-zinc-800 mb-4">{currentStep.question}</div>
-          <div className="flex flex-wrap gap-2">
-            {currentStep.options.map(opt => (
-              <button
-                key={opt}
-                onClick={() => handleAnswer(opt)}
-                className="px-4 py-2 bg-zinc-100 hover:bg-zinc-800 hover:text-white text-zinc-700 text-[11px] font-black rounded-full transition-all hover:scale-105 hover:shadow-md"
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-          {currentStep.allowFreeText && (
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                value={freeText}
-                onChange={(e) => setFreeText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && freeText.trim()) handleAnswer(freeText.trim()); }}
-                placeholder="自由入力..."
-                className="flex-1 text-xs border-2 border-zinc-100 rounded-xl px-3 py-2 outline-none focus:border-zinc-400 font-bold"
-              />
-              <button
-                onClick={() => { if (freeText.trim()) handleAnswer(freeText.trim()); }}
-                disabled={!freeText.trim()}
-                className="px-3 py-2 bg-zinc-800 text-white text-[10px] font-black rounded-xl disabled:opacity-30 transition-all"
-              >
-                OK
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Completion summary */}
-      {isComplete && (
-        <div className="bg-zinc-50 rounded-2xl p-5 border-2 border-zinc-100 animate-in fade-in duration-300">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-lg">&#10003;</span>
-            <span className="text-sm font-black text-zinc-800">ワークフロー完了</span>
-          </div>
-          <div className="space-y-2 mb-4">
-            {answers.map(a => (
-              <div key={a.stepId} className="flex items-start gap-2 text-[11px]">
-                <span className="text-zinc-400 font-bold shrink-0">{a.question.replace('？', '')}</span>
-                <span className="text-zinc-800 font-black">{a.answer}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleReset}
-              className="flex-1 py-2 text-[10px] font-black text-zinc-400 border border-zinc-200 rounded-xl hover:bg-zinc-100 transition-all"
-            >
-              やり直す
-            </button>
-            <button
-              onClick={() => {
-                const summary = answers.map(a => `${a.question.replace('？', '')}: ${a.answer}`).join('\n');
-                const newDetails = task.details ? `${task.details}\n---\n${summary}` : summary;
-                onUpdateTask?.(task.id, { details: newDetails });
-              }}
-              className="flex-1 py-2 text-[10px] font-black text-white bg-zinc-800 rounded-xl hover:bg-zinc-700 transition-all"
-            >
-              詳細メモに追加
-            </button>
-          </div>
+      {allChecked && (
+        <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200 text-center animate-in fade-in duration-300">
+          <span className="text-sm font-black text-green-700">全ステップ完了</span>
         </div>
       )}
     </div>
@@ -397,7 +336,7 @@ const AiWorkHub: React.FC<AiWorkHubProps> = ({ task, tasks = [], targetDate, onC
   const [isThinking, setIsThinking] = useState(false);
 
   useEffect(() => {
-    setActiveTab('workflow');
+    setActiveTab('steps');
     setSelectedTool(null);
     setAiResponse('');
   }, [task?.id]);
@@ -536,13 +475,13 @@ Tel.03-3851-0111
       {/* Tab bar */}
       <div className="flex border-b bg-zinc-50/20">
         <button
-          onClick={() => setActiveTab('workflow')}
+          onClick={() => setActiveTab('steps')}
           className={`flex-1 py-3 text-[11px] font-black tracking-wider transition-all relative ${
-            activeTab === 'workflow' ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+            activeTab === 'steps' ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
           }`}
         >
-          WORKFLOW
-          {activeTab === 'workflow' && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-zinc-800 rounded-full" />}
+          STEPS
+          {activeTab === 'steps' && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-zinc-800 rounded-full" />}
         </button>
         <button
           onClick={() => setActiveTab('analysis')}
@@ -572,36 +511,12 @@ Tel.03-3851-0111
         {task.details && (
           <div className="mt-2 text-[11px] text-zinc-500 bg-zinc-50 rounded-lg p-2 font-medium line-clamp-3">{task.details}</div>
         )}
-        {/* Auto-detected action shortcuts from task text */}
-        {(() => {
-          const shortcuts = extractActionShortcuts(task.title, task.details);
-          if (shortcuts.length === 0) return null;
-          return (
-            <div className="mt-3">
-              <label className="text-[9px] font-black text-zinc-400 tracking-widest block mb-2">検出されたツール連携</label>
-              <div className="flex flex-wrap gap-2">
-                {shortcuts.map(sc => (
-                  <a
-                    key={sc.name}
-                    href={sc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 border-2 border-blue-200 rounded-xl text-[11px] font-black text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all cursor-pointer shadow-sm"
-                  >
-                    <span>{sc.icon}</span>
-                    <span>{sc.name}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
       {/* Tab content */}
       <div className="px-6 pb-6 flex-1 overflow-y-auto custom-scrollbar">
-        {activeTab === 'workflow' ? (
-          <WorkflowWizard task={task} onUpdateTask={onUpdateTask} />
+        {activeTab === 'steps' ? (
+          <StructuredSteps task={task} onUpdateTask={onUpdateTask} />
         ) : activeTab === 'analysis' ? (
           <EvidenceAnalysis task={task} onUpdateTask={onUpdateTask} aiPersona={aiPersona} />
         ) : (

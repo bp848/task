@@ -74,10 +74,10 @@ Tel.03-3851-0111
   const automationSuggestions = useMemo(() => {
     const suggestions: string[] = [];
 
-    // 入力候補が多い → テンプレート化提案
+    // テンプレートが多い → 一括登録提案
     const routineCount = dayTasks.filter(t => t.isRoutine).length;
     if (routineCount >= 3) {
-      suggestions.push(`入力候補タスクが${routineCount}件 → 一括登録テンプレートで時短可能`);
+      suggestions.push(`テンプレートタスクが${routineCount}件 → 一括登録で時短可能`);
     }
 
     // メール系タスクが多い → 自動化提案

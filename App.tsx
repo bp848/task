@@ -211,13 +211,18 @@ const App: React.FC = () => {
       if (emailRes.ok) {
         const emailData = await emailRes.json();
         setEmails(emailData);
-      } else if (emailRes.status === 401) {
+      } else {
         const errData = await emailRes.json().catch(() => ({}));
-        console.error('Gmail auth error:', errData);
-        setGoogleError('Google認証が切れています。再ログインしてください。');
+        console.error('Gmail error:', emailRes.status, errData);
+        if (emailRes.status === 401) {
+          setGoogleError(`Google認証エラー: ${errData.error || '再ログインしてください'}`);
+        } else if (emailRes.status === 500) {
+          setGoogleError(`サーバーエラー: ${errData.error || 'Gmail取得に失敗'}`);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch Gmail:', err);
+      setGoogleError('Gmail接続エラー: サーバーに接続できません');
     }
 
     // Fetch Calendar events and merge as non-persisted tasks
@@ -228,8 +233,12 @@ const App: React.FC = () => {
       if (calRes.ok) {
         const calData = await calRes.json();
         mergeCalendarTasks(calData);
-      } else if (calRes.status === 401) {
-        setGoogleError('Google認証が切れています。再ログインしてください。');
+      } else {
+        const errData = await calRes.json().catch(() => ({}));
+        console.error('Calendar error:', calRes.status, errData);
+        if (!googleError) {
+          setGoogleError(`カレンダーエラー: ${errData.error || '再ログインしてください'}`);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch Calendar:', err);
