@@ -361,21 +361,22 @@ const App: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-50/20">
-        <div className="text-zinc-400 text-sm font-bold">読み込み中...</div>
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-gray-400 text-sm font-medium">読み込み中...</div>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-50/20">
-        <div className="bg-white rounded-3xl shadow-xl shadow-zinc-200 p-12 max-w-md w-full mx-4 text-center">
-          <h1 className="text-2xl font-black text-zinc-800 tracking-widest mb-2">ZenWork Mini</h1>
-          <p className="text-xs text-zinc-400 font-bold mb-10">タスク管理 + Google Workspace 連携</p>
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="bg-white rounded-2xl shadow-lg p-12 max-w-md w-full mx-4 text-center border border-gray-200">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">ZenWork Mini</h1>
+          <p className="text-sm text-gray-400 mb-10">タスク管理 + Google Workspace 連携</p>
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center space-x-3 bg-zinc-900 text-white px-6 py-4 rounded-2xl shadow-lg hover:bg-zinc-800 transition-all text-sm font-black tracking-widest"
+            className="w-full flex items-center justify-center space-x-3 text-white px-6 py-4 rounded-xl shadow-sm hover:opacity-90 transition-all text-sm font-semibold"
+            style={{ backgroundColor: '#0D9488' }}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
@@ -388,7 +389,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`flex h-screen bg-zinc-50/20 text-zinc-900 font-sans ${appSettings.psychedelic_mode ? 'psychedelic-mode' : ''}`}>
+    <div className={`flex h-screen bg-white text-gray-800 font-sans ${appSettings.psychedelic_mode ? 'psychedelic-mode' : ''}`}>
       {appSettings.psychedelic_mode && (
         <style>{`
           @keyframes psyche-hue { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
@@ -408,70 +409,72 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-14 md:h-16 border-b-2 border-zinc-100 bg-white flex items-center justify-between px-3 md:px-8 shrink-0 z-10">
-          <div className="flex items-center gap-2 md:gap-6 min-w-0">
+        <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 md:px-8 shrink-0 z-10">
+          <div className="flex items-center gap-3 md:gap-6 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden p-2 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all shrink-0"
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-all shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
-            <h1 className="text-sm md:text-base font-black text-zinc-800 tracking-widest truncate">
+            <h1 className="text-base md:text-lg font-bold text-gray-800 truncate">
               {currentView === 'project-detail' ? projects.find(p => p.id === selectedProjectId)?.name : viewTitleMap[currentView]}
             </h1>
             {currentView === 'planner' ? (
               <div className="hidden sm:flex items-center space-x-2">
-                <button onClick={() => setPlannerWeekOffset(w => w - 1)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-all text-slate-500 cursor-pointer">
+                <button onClick={() => setPlannerWeekOffset(w => w - 1)} className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all text-gray-500 cursor-pointer">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
-                <button onClick={() => setPlannerWeekOffset(() => 0)} className="px-3 py-1 rounded-lg text-[11px] font-black text-slate-500 hover:bg-slate-100 transition-all cursor-pointer">今週</button>
-                <button onClick={() => setPlannerWeekOffset(w => w + 1)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-all text-slate-500 cursor-pointer">
+                <button onClick={() => setPlannerWeekOffset(() => 0)} className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-all cursor-pointer">今週</button>
+                <button onClick={() => setPlannerWeekOffset(w => w + 1)} className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all text-gray-500 cursor-pointer">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
                 <button
                   onClick={() => setPlannerBulkMode(v => !v)}
-                  className={`ml-2 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer border ${plannerBulkMode ? 'bg-indigo-800 text-white border-indigo-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                  className={`ml-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${plannerBulkMode ? 'text-white border-teal-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                  style={plannerBulkMode ? { backgroundColor: '#0D9488' } : {}}
                 >
                   {plannerBulkMode ? '閉じる' : '一括追加'}
                 </button>
               </div>
             ) : (
-              <div className="hidden sm:flex items-center space-x-2 text-[11px] font-black text-zinc-300">
+              <div className="hidden sm:flex items-center">
                 <input
                   type="date"
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
-                  className="bg-zinc-50 px-3 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100 text-xs"
+                  className="bg-gray-50 px-4 py-2 rounded-lg text-gray-700 font-medium outline-none cursor-pointer hover:bg-gray-100 transition-all border border-gray-200 text-sm"
                 />
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 md:gap-4 shrink-0">
+          <div className="flex items-center gap-3 md:gap-4 shrink-0">
             {googleError ? (
               <button
                 onClick={() => setCurrentView('settings')}
-                className="flex items-center gap-1.5 text-[10px] md:text-xs font-black text-white bg-amber-600 px-2 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-amber-700 transition-all cursor-pointer shadow-lg shadow-amber-200"
+                className="flex items-center gap-2 text-xs md:text-sm font-semibold text-white px-3 md:px-4 py-2 rounded-lg hover:opacity-90 transition-all cursor-pointer"
+                style={{ backgroundColor: '#0D9488' }}
               >
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
                 <span className="hidden sm:inline">Googleと連携</span>
               </button>
             ) : isGoogleConnected ? (
-              <div className="hidden md:flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
+              <div className="hidden md:flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg" style={{ color: '#0D9488', backgroundColor: '#F0FDFA' }}>
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0D9488' }}></div>
                 <span>Google 接続済み</span>
               </div>
             ) : null}
             {activeTaskId && (
-              <div className="flex items-center gap-2 bg-zinc-800 text-white px-3 py-1.5 rounded-full shadow-lg shadow-zinc-200">
+              <div className="flex items-center gap-2 text-white px-4 py-2 rounded-lg" style={{ backgroundColor: '#0D9488' }}>
                 <div className="w-2 h-2 bg-white rounded-full animate-ping shrink-0"></div>
-                <span className="text-[10px] font-black tracking-widest hidden sm:inline">計測中...</span>
+                <span className="text-xs font-semibold hidden sm:inline">計測中...</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5 md:gap-3">
-              <div className="hidden md:block text-[11px] font-black text-zinc-400 tracking-wider">
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="hidden md:block text-sm text-gray-400">
                 {clockTime.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}
               </div>
-              <div className="text-sm md:text-lg font-mono font-black text-zinc-800 tracking-tight tabular-nums">
+              <div className="text-base md:text-lg font-mono font-semibold text-gray-700 tabular-nums">
                 {clockTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
             </div>

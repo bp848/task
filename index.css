@@ -1,12 +1,16 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 @theme {
   --font-sans: "Inter", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --color-accent: #0D9488;
+  --color-accent-dark: #0F766E;
+  --color-accent-light: #CCFBF1;
+  --color-accent-50: #F0FDFA;
 }
 
 /* ========================================
-   DESIGN SYSTEM — Global Reset & Tokens
+   DESIGN SYSTEM — Clean & Readable
    ======================================== */
 @layer base {
   *, *::before, *::after {
@@ -15,19 +19,22 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  body {
-    @apply bg-zinc-50 text-zinc-900;
-    font-feature-settings: "kern" 1, "liga" 1;
-    letter-spacing: -0.01em;
+  html {
+    font-size: 15px;
+    line-height: 1.6;
   }
 
-  /* 全inputのベース */
+  body {
+    @apply bg-white text-gray-800;
+    font-feature-settings: "kern" 1, "liga" 1;
+    letter-spacing: 0;
+  }
+
   input, textarea, select {
     font-family: inherit;
     font-size: inherit;
   }
 
-  /* ボタンのタップ領域 */
   button {
     -webkit-tap-highlight-color: transparent;
   }
@@ -37,14 +44,14 @@
    SCROLLBAR
    ======================================== */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e4e4e7;
+  background: #d4d4d8;
   border-radius: 99px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -55,42 +62,40 @@
    UTILITY CLASSES
    ======================================== */
 
-/* セクションラベル */
 .label-xs {
-  @apply text-[10px] font-semibold tracking-widest text-zinc-400 uppercase;
+  @apply text-xs font-semibold tracking-wide text-gray-400 uppercase;
 }
 
-/* カードベース */
 .card {
-  @apply bg-white rounded-xl border border-zinc-100 shadow-sm;
+  @apply bg-white rounded-xl border border-gray-200;
 }
 
-/* インタラクティブカード */
 .card-interactive {
-  @apply bg-white rounded-xl border border-zinc-100 shadow-sm transition-all
-    duration-150 hover:border-zinc-200 hover:shadow-md;
+  @apply bg-white rounded-xl border border-gray-200 transition-all
+    duration-150 hover:border-gray-300 hover:shadow-md;
 }
 
-/* フォームインプット */
 .input-base {
-  @apply w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm
-    text-zinc-800 placeholder:text-zinc-400 outline-none transition-all
-    duration-150 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-900/5;
+  @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm
+    text-gray-800 placeholder:text-gray-400 outline-none transition-all
+    duration-150 focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/10;
 }
 
-/* プライマリボタン */
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-900
-    px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all
-    duration-150 hover:bg-zinc-800 active:scale-[0.98] disabled:opacity-40
+  @apply inline-flex items-center justify-center gap-2 rounded-lg
+    px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all
+    duration-150 active:scale-[0.98] disabled:opacity-40
     disabled:cursor-not-allowed;
+  background-color: var(--color-accent);
+}
+.btn-primary:hover {
+  background-color: var(--color-accent-dark);
 }
 
-/* セカンダリボタン */
 .btn-secondary {
   @apply inline-flex items-center justify-center gap-2 rounded-lg border
-    border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700
-    shadow-sm transition-all duration-150 hover:bg-zinc-50 hover:border-zinc-300
+    border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700
+    shadow-sm transition-all duration-150 hover:bg-gray-50 hover:border-gray-300
     active:scale-[0.98];
 }
 
@@ -98,52 +103,58 @@
    ANIMATIONS
    ======================================== */
 @keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 @keyframes slide-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
-.animate-fade-in-up {
-  animation: fade-in-up 0.2s ease-out both;
-}
-.animate-fade-in {
-  animation: fade-in 0.15s ease-out both;
-}
-.animate-slide-in-right {
-  animation: slide-in-right 0.25s ease-out both;
-}
+.animate-fade-in-up { animation: fade-in-up 0.2s ease-out both; }
+.animate-fade-in { animation: fade-in 0.15s ease-out both; }
+.animate-slide-in-right { animation: slide-in-right 0.25s ease-out both; }
 
 /* ========================================
    SIDEBAR
    ======================================== */
 .sidebar-item {
-  @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
-    text-zinc-500 transition-all duration-150 w-full cursor-pointer
-    hover:bg-zinc-100 hover:text-zinc-800;
+  @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
+    text-gray-500 transition-all duration-150 w-full cursor-pointer
+    hover:bg-gray-100 hover:text-gray-800;
 }
 .sidebar-item-active {
-  @apply bg-zinc-900 text-white hover:bg-zinc-800 hover:text-white;
+  color: var(--color-accent);
+  background-color: var(--color-accent-50);
+  font-weight: 600;
+}
+.sidebar-item-active:hover {
+  color: var(--color-accent-dark);
+  background-color: var(--color-accent-light);
+}
+
+/* ========================================
+   TABLE STYLES (FXGT-like)
+   ======================================== */
+.data-table {
+  @apply w-full text-sm;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.data-table thead th {
+  @apply text-xs font-semibold text-gray-400 uppercase tracking-wide
+    px-4 py-3 text-left border-b border-gray-200 bg-gray-50/50;
+}
+.data-table tbody td {
+  @apply px-4 py-4 border-b border-gray-100 text-gray-700;
+}
+.data-table tbody tr:hover {
+  @apply bg-gray-50;
+}
+.data-table tbody tr:last-child td {
+  @apply border-b-0;
 }

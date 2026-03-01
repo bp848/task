@@ -35,8 +35,8 @@ const VIEW_ITEMS = [
 ];
 
 const PROJECTS = [
-  { id: 'p1', name: '制作・デザイン',   color: '#71717a' },
-  { id: 'p2', name: '進行管理・MTG',    color: '#52525b' },
+  { id: 'p1', name: '制作・デザイン',   color: '#0D9488' },
+  { id: 'p2', name: '進行管理・MTG',    color: '#6366F1' },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -49,40 +49,38 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* モバイルオーバーレイ */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-zinc-900/30 backdrop-blur-[2px] z-40 md:hidden"
+          className="fixed inset-0 bg-gray-900/20 backdrop-blur-[2px] z-40 md:hidden"
           onClick={toggleSidebar}
         />
       )}
 
       <aside className={`
         flex flex-col h-full
-        bg-white border-r border-zinc-100
+        bg-white border-r border-gray-200
         transition-all duration-250 ease-in-out
         fixed md:relative z-50
-        ${isOpen ? 'w-56 translate-x-0' : 'w-56 -translate-x-full md:w-14 md:translate-x-0'}
+        ${isOpen ? 'w-60 translate-x-0' : 'w-60 -translate-x-full md:w-14 md:translate-x-0'}
       `}>
         {/* ユーザー情報 */}
-        <div className={`h-14 md:h-16 border-b border-zinc-100 flex items-center shrink-0 ${isOpen ? 'px-4 gap-3' : 'px-0 justify-center'}`}>
+        <div className={`h-16 border-b border-gray-200 flex items-center shrink-0 ${isOpen ? 'px-5 gap-3' : 'px-0 justify-center'}`}>
           {user.avatar ? (
-            <img src={user.avatar} className="w-7 h-7 rounded-full border border-zinc-200 shrink-0" alt="" />
+            <img src={user.avatar} className="w-8 h-8 rounded-full border border-gray-200 shrink-0" alt="" />
           ) : (
-            <div className="w-7 h-7 rounded-full bg-zinc-200 shrink-0 flex items-center justify-center text-xs font-semibold text-zinc-500">
+            <div className="w-8 h-8 rounded-full bg-teal-100 shrink-0 flex items-center justify-center text-sm font-semibold text-teal-700">
               {user.name?.[0] || 'U'}
             </div>
           )}
           {isOpen && (
             <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-zinc-800 truncate leading-tight">{user.name}</div>
-              {user.role && <div className="text-[10px] text-zinc-400 truncate leading-tight mt-0.5">{user.role}</div>}
+              <div className="text-sm font-semibold text-gray-800 truncate">{user.name}</div>
+              {user.role && <div className="text-xs text-gray-400 truncate mt-0.5">{user.role}</div>}
             </div>
           )}
-          {/* モバイル閉じるボタン */}
           {isOpen && (
-            <button onClick={toggleSidebar} className="md:hidden p-1 rounded-md text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors shrink-0">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onClick={toggleSidebar} className="md:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
@@ -90,8 +88,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* ナビゲーション */}
-        <nav className="flex-1 py-3 overflow-y-auto custom-scrollbar">
-          <ul className="space-y-0.5 px-2">
+        <nav className="flex-1 py-4 overflow-y-auto custom-scrollbar">
+          <ul className="space-y-1 px-3">
             {NAV_ITEMS.map(item => {
               const active = currentView === item.id;
               return (
@@ -101,7 +99,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     title={!isOpen ? item.label : undefined}
                     className={`sidebar-item w-full ${active ? 'sidebar-item-active' : ''} ${!isOpen ? 'justify-center px-0' : ''}`}
                   >
-                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path d={item.icon} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                     {isOpen && <span>{item.label}</span>}
@@ -112,11 +110,11 @@ const Sidebar: React.FC<SidebarProps> = ({
           </ul>
 
           {isOpen && (
-            <div className="mt-6 px-2">
-              <div className="px-3 mb-1.5">
+            <div className="mt-8 px-3">
+              <div className="px-4 mb-2">
                 <span className="label-xs">プロジェクト</span>
               </div>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {VIEW_ITEMS.map(item => {
                   const active = currentView === item.id;
                   return (
@@ -125,7 +123,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNav(item.id as ViewType)}
                         className={`sidebar-item w-full ${active ? 'sidebar-item-active' : ''}`}
                       >
-                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path d={item.icon} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                         <span>{item.label}</span>
@@ -141,7 +139,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNav('project-detail', p.id)}
                         className={`sidebar-item w-full ${active ? 'sidebar-item-active' : ''}`}
                       >
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                         <span className="truncate">{p.name}</span>
                       </button>
                     </li>
@@ -153,13 +151,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* フッター */}
-        <div className="border-t border-zinc-100 p-2 space-y-0.5">
+        <div className="border-t border-gray-200 p-3 space-y-1">
           {isOpen && onLogout && (
             <button
               onClick={onLogout}
-              className="sidebar-item w-full text-zinc-400 hover:text-red-600 hover:bg-red-50"
+              className="sidebar-item w-full text-gray-400 hover:text-red-600 hover:bg-red-50"
             >
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span>ログアウト</span>
@@ -170,7 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             title={isOpen ? 'サイドバーを閉じる' : 'サイドバーを開く'}
             className={`sidebar-item w-full hidden md:flex ${!isOpen ? 'justify-center px-0' : ''}`}
           >
-            <svg className={`w-4 h-4 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className={`w-5 h-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path d="M13 5l7 7-7 7M5 5l7 7-7 7" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
