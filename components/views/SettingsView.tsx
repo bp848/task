@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase, gws } from '../../lib/gws';
-import { useGoogleAuth } from 'gws-supabase-kit';
+import { supabase, callEdgeFunction } from '../../lib/gws';
 
 interface SettingsViewProps {
   session: Session | null;
@@ -46,27 +45,55 @@ Tel.03-3851-0111
 const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange, onGoogleConnected }) => {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [saving, setSaving] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const userId = session?.user?.id;
 
-  const { isConnected, isLoading, startOAuth, handleCallback } = useGoogleAuth({
-    supabase: gws.supabase,
-    config: {
-      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || import.meta.env.VITE_REDIRECT_URI || window.location.origin,
-      usePKCE: true,
-    },
-    exchangeCodeUrl: gws.exchangeCodeUrl,
-    onSuccess: () => onGoogleConnected?.(),
-  });
-
+  // Check Google OAuth status via Edge Function
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get('code');
-    if (code) {
-      handleCallback(code).then(() => {
-        window.history.replaceState({}, document.title, window.location.pathname);
+    if (!session) return;
+    callEdgeFunction('google-oauth-status')
+      .then((res) => {
+        setIsConnected(!!res?.connected);
+      })
+      .catch(() => setIsConnected(false));
+  }, [session]);
+
+  const startOAuth = async () => {
+    setIsLoading(true);
+    try {
+      const res = await callEdgeFunction('google-oauth-start', {
+        body: { redirect_uri: window.location.origin + '/settings' },
       });
+      if (res?.url) {
+        window.location.href = res.url;
+      }
+    } catch (err) {
+      console.error('Failed to start Google OAuth:', err);
+      setIsLoading(false);
     }
-  }, []);
+  };
+
+  // Handle OAuth callback code
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    if (code && session) {
+      setIsLoading(true);
+      callEdgeFunction('google-oauth-callback', {
+        body: { code, redirect_uri: window.location.origin + '/settings' },
+      })
+        .then(() => {
+          setIsConnected(true);
+          onGoogleConnected?.();
+        })
+        .catch((err) => console.error('OAuth callback failed:', err))
+        .finally(() => {
+          setIsLoading(false);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    }
+  }, [session]);
 
   useEffect(() => {
     if (!userId) return;

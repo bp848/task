@@ -15,7 +15,7 @@ import ToolsView from './components/views/ToolsView';
 import AiWorkHub from './components/AiWorkHub';
 import { ViewType, Task, Project, Email } from './types';
 import { initialProjects } from './constants';
-import { supabase, gws } from './lib/gws';
+import { supabase, callEdgeFunction } from './lib/gws';
 import { useZenworkTasks } from './hooks/useZenworkTasks';
 import { useEmails } from './hooks/useEmails';
 
@@ -168,17 +168,21 @@ const App: React.FC = () => {
       const endOfDay = new Date(targetDate);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const events = await gws.calendar.listEvents({
-        timeMin: startOfDay.toISOString(),
-        timeMax: endOfDay.toISOString(),
+      const result = await callEdgeFunction('calendar-events', {
+        body: {
+          timeMin: startOfDay.toISOString(),
+          timeMax: endOfDay.toISOString(),
+        },
       });
 
-      if (events) {
+      const events = result?.events || result?.items || (Array.isArray(result) ? result : []);
+
+      if (events.length > 0) {
         const mappedEvents = events.map((event: any) => ({
           id: event.id,
-          title: event.summary,
-          startTime: event.start?.dateTime || event.start?.date,
-          endTime: event.end?.dateTime || event.end?.date,
+          title: event.summary || event.title,
+          startTime: event.start?.dateTime || event.start?.date || event.startTime,
+          endTime: event.end?.dateTime || event.end?.date || event.endTime,
           description: event.description,
           tags: ['Google Calendar'],
         }));
@@ -195,18 +199,28 @@ const App: React.FC = () => {
 
     setGoogleError(null);
 
-    // Try Gmail — this tests whether Google tokens are valid
+    // First check if Google is connected via Edge Function
+    try {
+      const status = await callEdgeFunction('google-oauth-status');
+      if (!status?.connected) {
+        setIsGoogleConnected(false);
+        setGoogleError('設定画面で「Googleと連携」を実行してください');
+        return;
+      }
+    } catch {
+      // Status check failed — try fetching data anyway
+    }
+
+    // Try Gmail
     const result = await fetchFromGmail();
 
     if (result === 'success') {
       setIsGoogleConnected(true);
-      // Gmail worked, now try Calendar
       await fetchCalendarEvents();
     } else if (result === 'token_error') {
       setIsGoogleConnected(false);
       setGoogleError('設定画面で「Googleと連携」を実行してください');
     } else {
-      // cache_fallback — partial, mark as connected since it might just be a network blip
       setIsGoogleConnected(false);
     }
   };

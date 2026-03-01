@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase, gws } from '../lib/gws';
+import { supabase, callEdgeFunction } from '../lib/gws';
 import { Email } from '../types';
 
 interface DbEmail {
@@ -42,19 +42,20 @@ export function useEmails(session: Session | null) {
     setLoading(true);
 
     try {
-      const gmailData = await gws.gmail.listMessages({
-        maxResults: 10,
-        labelIds: ['INBOX'],
+      const result = await callEdgeFunction('gmail-fetch', {
+        body: { maxResults: 10, labelIds: ['INBOX'] },
       });
 
-      if (gmailData && Array.isArray(gmailData)) {
-        const mapped: Email[] = gmailData.map((m: { id: string; from?: string; subject?: string; snippet?: string; date?: string; labelIds?: string[] }) => ({
-          id: m.id,
-          sender: m.from || '',
+      const gmailData = result?.emails || result?.messages || (Array.isArray(result) ? result : []);
+
+      if (gmailData.length > 0) {
+        const mapped: Email[] = gmailData.map((m: any) => ({
+          id: m.id || m.message_id || String(Math.random()),
+          sender: m.from || m.sender || '',
           subject: m.subject || '',
           snippet: m.snippet || '',
-          date: m.date || new Date().toISOString(),
-          isRead: !(m.labelIds ?? []).includes('UNREAD'),
+          date: m.date || m.received_at || new Date().toISOString(),
+          isRead: m.is_read ?? !(m.labelIds ?? []).includes('UNREAD'),
         }));
         setEmails(mapped);
 
