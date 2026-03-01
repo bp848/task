@@ -40,14 +40,16 @@ const CustomerView: React.FC<CustomerViewProps> = ({ tasks, targetDate, onSelect
     }
   }, [tasks, targetDate, dateRange]);
 
+  type CustomerData = {
+    tasks: Task[];
+    totalTime: number;
+    completedCount: number;
+    categories: Record<string, number>;
+    dates: Set<string>;
+  };
+
   const customers = useMemo(() => {
-    const custMap: Record<string, {
-      tasks: Task[];
-      totalTime: number;
-      completedCount: number;
-      categories: Record<string, number>;
-      dates: Set<string>;
-    }> = {};
+    const custMap: Record<string, CustomerData> = {};
 
     filteredTasks.forEach(t => {
       const name = t.customerName || '（顧客未設定）';
@@ -137,7 +139,7 @@ const CustomerView: React.FC<CustomerViewProps> = ({ tasks, targetDate, onSelect
 
         {/* Customer cards */}
         <div className="space-y-3">
-          {Object.entries(customers)
+          {(Object.entries(customers) as [string, CustomerData][])
             .sort(([, a], [, b]) => b.tasks.length - a.tasks.length)
             .map(([name, data]) => {
               const isExpanded = expandedCustomer === name;

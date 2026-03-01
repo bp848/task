@@ -47,11 +47,20 @@ export function useEmails(session: Session | null) {
       });
 
       if (gmailData && Array.isArray(gmailData)) {
-        setEmails(gmailData);
+        // GmailMessage → Email mapping
+        const mapped: Email[] = gmailData.map((m: { id: string; from?: string; subject?: string; snippet?: string; date?: string; labelIds?: string[] }) => ({
+          id: m.id,
+          sender: m.from || '',
+          subject: m.subject || '',
+          snippet: m.snippet || '',
+          date: m.date || new Date().toISOString(),
+          isRead: !(m.labelIds ?? []).includes('UNREAD'),
+        }));
+        setEmails(mapped);
 
         // Cache to Supabase
-        if (userId && gmailData.length > 0) {
-          const dbRows = gmailData.map((e: Email) => ({
+        if (userId && mapped.length > 0) {
+          const dbRows = mapped.map(e => ({
             id: e.id,
             user_id: userId,
             sender: e.sender,

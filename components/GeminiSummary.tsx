@@ -87,7 +87,7 @@ Tel.03-3851-0111
     }
 
     // 同一顧客への複数タスク → まとめ提案
-    Object.entries(stats.byCustomer).forEach(([name, data]) => {
+    (Object.entries(stats.byCustomer) as [string, { count: number; completed: number; time: number; tasks: string[] }][]).forEach(([name, data]) => {
       if (data.count >= 3 && name !== '（未設定）') {
         suggestions.push(`${name}向け${data.count}件 → まとめて処理でコンテキストスイッチ削減`);
       }
@@ -107,7 +107,7 @@ Tel.03-3851-0111
     }
 
     // 顧客名×タスク内容から関連提案
-    Object.entries(stats.byCustomer).forEach(([name, data]) => {
+    (Object.entries(stats.byCustomer) as [string, { count: number; completed: number; time: number; tasks: string[] }][]).forEach(([name, data]) => {
       if (name === '（未設定）') return;
       const taskTitles = data.tasks.join(' ');
       if (taskTitles.includes('名刺') || taskTitles.includes('経営計画')) {

@@ -15,8 +15,10 @@ const TaskCategoryView: React.FC<TaskCategoryViewProps> = ({ tasks, targetDate, 
 
   const dayTasks = useMemo(() => tasks.filter(t => t.date === targetDate), [tasks, targetDate]);
 
+  type CategoryData = { color: string; icon: string; tasks: Task[]; totalTime: number; completedCount: number };
+
   const categories = useMemo(() => {
-    const catMap: Record<string, { color: string; icon: string; tasks: Task[]; totalTime: number; completedCount: number }> = {};
+    const catMap: Record<string, CategoryData> = {};
 
     // Uncategorized bucket
     const uncategorized: Task[] = [];
@@ -51,8 +53,10 @@ const TaskCategoryView: React.FC<TaskCategoryViewProps> = ({ tasks, targetDate, 
   }, [dayTasks]);
 
   // Software usage summary
+  type SoftwareData = { icon: string; count: number; tasks: string[] };
+
   const softwareUsage = useMemo(() => {
-    const swMap: Record<string, { icon: string; count: number; tasks: string[] }> = {};
+    const swMap: Record<string, SoftwareData> = {};
     dayTasks.forEach(t => {
       extractSoftware(t.title, t.details).forEach(sw => {
         if (!swMap[sw.name]) swMap[sw.name] = { icon: sw.icon, count: 0, tasks: [] };
@@ -90,7 +94,7 @@ const TaskCategoryView: React.FC<TaskCategoryViewProps> = ({ tasks, targetDate, 
 
         {/* Category cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Object.entries(categories)
+          {(Object.entries(categories) as [string, CategoryData][])
             .sort(([, a], [, b]) => b.tasks.length - a.tasks.length)
             .map(([name, data]) => {
               const isExpanded = expandedCategory === name;
@@ -192,7 +196,7 @@ const TaskCategoryView: React.FC<TaskCategoryViewProps> = ({ tasks, targetDate, 
           <div className="bg-white rounded-2xl border-2 border-zinc-100 p-5 shadow-sm">
             <h3 className="text-[11px] font-black text-zinc-500 tracking-widest mb-4">使用ソフトウェア</h3>
             <div className="flex flex-wrap gap-3">
-              {Object.entries(softwareUsage)
+              {(Object.entries(softwareUsage) as [string, SoftwareData][])
                 .sort(([, a], [, b]) => b.count - a.count)
                 .map(([name, data]) => (
                   <div key={name} className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-xl">

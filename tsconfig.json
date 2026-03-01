@@ -26,5 +26,12 @@
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "lib/gws-supabase-kit",
+    "gws-supabase-kit (1)",
+    "server.ts"
+  ]
 }

@@ -25,3 +25,6 @@ dist-ssr
 .env
 .env.*
 !.env.example
+.vercel
+gws-supabase-kit (1)/
+gws-supabase-kit (1).zip
