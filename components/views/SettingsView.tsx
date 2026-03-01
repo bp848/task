@@ -7,6 +7,7 @@ import { useGoogleAuth } from 'gws-supabase-kit';
 interface SettingsViewProps {
   session: Session | null;
   onSettingsChange?: (settings: Settings) => void;
+  onGoogleConnected?: () => void;
 }
 
 export interface Settings {
@@ -42,7 +43,7 @@ Tel.03-3851-0111
 **************************************************`,
 };
 
-const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }) => {
+const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange, onGoogleConnected }) => {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [saving, setSaving] = useState(false);
   const userId = session?.user?.id;
@@ -51,10 +52,11 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }
     supabase: gws.supabase,
     config: {
       clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || '',
+      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || import.meta.env.VITE_REDIRECT_URI || window.location.origin,
       usePKCE: true,
     },
     exchangeCodeUrl: gws.exchangeCodeUrl,
+    onSuccess: () => onGoogleConnected?.(),
   });
 
   useEffect(() => {

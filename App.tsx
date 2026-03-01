@@ -11,6 +11,7 @@ import InboxView from './components/views/InboxView';
 import ProjectDetailView from './components/views/ProjectDetailView';
 import TaskCategoryView from './components/views/TaskCategoryView';
 import CustomerView from './components/views/CustomerView';
+import ToolsView from './components/views/ToolsView';
 import AiWorkHub from './components/AiWorkHub';
 import { ViewType, Task, Project, Email } from './types';
 import { initialProjects } from './constants';
@@ -22,13 +23,14 @@ const viewTitleMap: Record<ViewType, string> = {
   'today': '本日の業務',
   'inbox': '受信トレイ',
   'planner': '週次計画',
-  'schedule': 'タイムライン',
+  'schedule': 'カレンダー',
   'metrics': '業務分析',
   'habits': 'ルーティン管理',
   'settings': '設定',
   'project-detail': 'プロジェクト詳細',
   'task-view': '作業ベース',
-  'customer-view': '顧客ベース'
+  'customer-view': '顧客ベース',
+  'tools': 'ツール',
 };
 
 const GOOGLE_SCOPES = [
@@ -55,6 +57,7 @@ const App: React.FC = () => {
   const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
   const [plannerWeekOffset, setPlannerWeekOffset] = useState(0);
   const [plannerBulkMode, setPlannerBulkMode] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   // Supabase-backed hooks
   const {
@@ -74,7 +77,6 @@ const App: React.FC = () => {
 
   // Supabase Auth session management
   useEffect(() => {
-    // タイムアウト付きでセッション取得（5秒でフォールバック）
     const timeout = setTimeout(() => {
       console.warn('getSession timed out, showing login screen');
       setLoading(false);
@@ -84,8 +86,7 @@ const App: React.FC = () => {
       clearTimeout(timeout);
       setSession(session);
       if (session) {
-        setIsGoogleConnected(true);
-        // Load settings on session init
+        // Load settings + customers
         supabase.from('zenwork_settings').select('*').eq('user_id', session.user.id).single()
           .then(({ data }) => { if (data) setAppSettings({
             psychedelic_mode: data.psychedelic_mode, ai_persona: data.ai_persona, auto_memo: data.auto_memo,
@@ -95,22 +96,8 @@ const App: React.FC = () => {
         supabase.from('customers').select('customer_name').not('customer_name', 'is', null).order('customer_name')
           .then(({ data }) => { if (data) setCustomerSuggestions(data.map((r: { customer_name: string }) => r.customer_name).filter(Boolean)); });
 
-        // Check if stored Google tokens have correct scopes
-        const { data: tokenData } = await supabase
-          .from('user_google_tokens')
-          .select('scope')
-          .eq('user_id', session.user.id)
-          .single();
-        const requiredScopes = ['gmail.readonly', 'calendar.readonly'];
-        const storedScope = tokenData?.scope || '';
-        const missingScope = requiredScopes.some(s => !storedScope.includes(s));
-        if (missingScope) {
-          console.warn('[AUTH] Google tokens missing required scopes. Need re-login.', storedScope);
-          setGoogleError('Googleスコープが不足しています。Gmail/カレンダーを使うには再ログインが必要です。');
-        } else {
-          // Fetch Google data on initial load
-          fetchGoogleData(session);
-        }
+        // Try to fetch Google data — token validity is determined by actual API success
+        await fetchGoogleData(session);
       }
       setLoading(false);
     }).catch((err) => {
@@ -122,13 +109,8 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       if (event === 'SIGNED_IN' && session) {
-        setIsGoogleConnected(true);
         setGoogleError(null);
-        if (session.provider_token) {
-          await saveGoogleTokens(session);
-          console.log('[AUTH] Google tokens saved after login');
-        }
-        // Small delay to ensure tokens are saved before fetching
+        // Try fetching Google data after login
         setTimeout(() => fetchGoogleData(session), 500);
       } else if (event === 'SIGNED_OUT') {
         setIsGoogleConnected(false);
@@ -151,24 +133,9 @@ const App: React.FC = () => {
   // Fetch Google data when targetDate changes
   useEffect(() => {
     if (session && isGoogleConnected) {
-      fetchGoogleData(session);
+      fetchCalendarEvents();
     }
   }, [targetDate]);
-
-  const saveGoogleTokens = async (session: Session) => {
-    if (!session.provider_token) return;
-    const { error } = await supabase.from('user_google_tokens').upsert({
-      user_id: session.user.id,
-      access_token: session.provider_token,
-      refresh_token: session.provider_refresh_token || null,
-      scope: GOOGLE_SCOPES,
-      expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    if (error) {
-      console.error('Failed to save Google tokens:', error);
-    }
-  };
 
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -194,18 +161,7 @@ const App: React.FC = () => {
     clearEmails();
   };
 
-  const [googleError, setGoogleError] = useState<string | null>(null);
-
-  const fetchGoogleData = async (currentSession?: Session) => {
-    const s = currentSession || session;
-    if (!s) return;
-
-    setGoogleError(null);
-
-    // Fetch Gmail using the custom hook
-    await fetchFromGmail();
-
-    // Fetch Calendar events and merge as non-persisted tasks
+  const fetchCalendarEvents = async () => {
     try {
       const startOfDay = new Date(targetDate);
       startOfDay.setHours(0, 0, 0, 0);
@@ -216,11 +172,8 @@ const App: React.FC = () => {
         timeMin: startOfDay.toISOString(),
         timeMax: endOfDay.toISOString(),
       });
-      
+
       if (events) {
-        // gws-supabase-kit の形式に合わせて変換 (必要なら)
-        // mergeCalendarTasks はバックエンドや旧APIで想定していた形になっているかもしれないため、
-        // 適切にマッピングする処理が必要になる場合があります。
         const mappedEvents = events.map((event: any) => ({
           id: event.id,
           title: event.summary,
@@ -233,13 +186,32 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to fetch Calendar:', err);
-      if (err.message?.includes('auth') || err.message?.includes('token')) {
-        setGoogleError(`カレンダーエラー: 再ログインしてください`);
-      }
     }
   };
 
-  // Timer: Date.now()ベースで正確に計測（バックグラウンドタブでも正確）
+  const fetchGoogleData = async (currentSession?: Session) => {
+    const s = currentSession || session;
+    if (!s) return;
+
+    setGoogleError(null);
+
+    // Try Gmail — this tests whether Google tokens are valid
+    const result = await fetchFromGmail();
+
+    if (result === 'success') {
+      setIsGoogleConnected(true);
+      // Gmail worked, now try Calendar
+      await fetchCalendarEvents();
+    } else if (result === 'token_error') {
+      setIsGoogleConnected(false);
+      setGoogleError('設定画面で「Googleと連携」を実行してください');
+    } else {
+      // cache_fallback — partial, mark as connected since it might just be a network blip
+      setIsGoogleConnected(false);
+    }
+  };
+
+  // Timer: Date.now()ベースで正確に計測
   const timerStartRef = useRef<number>(0);
   const baseTimeRef = useRef<number>(0);
   useEffect(() => {
@@ -292,11 +264,9 @@ const App: React.FC = () => {
   const toggleTimer = (id: string) => {
     const now = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     if (activeTaskId === id) {
-      // Timer OFF: record stop time
       updateTask(id, { timerStoppedAt: now });
       setActiveTaskId(null);
     } else {
-      // Timer ON: record start time
       updateTask(id, { timerStartedAt: now });
       setActiveTaskId(id);
       setSelectedTaskId(id);
@@ -344,7 +314,7 @@ const App: React.FC = () => {
           setIsBulkMode={setPlannerBulkMode}
         />;
       case 'schedule':
-        return <ScheduleView tasks={tasks} targetDate={targetDate} />;
+        return <ScheduleView tasks={tasks} targetDate={targetDate} setTargetDate={setTargetDate} />;
       case 'project-detail':
         const project = projects.find(p => p.id === selectedProjectId);
         return project ? <ProjectDetailView project={project} tasks={tasks} onToggleTask={handleToggleTask} /> : null;
@@ -359,11 +329,17 @@ const App: React.FC = () => {
           handleAddTask(title, 'p1', [], (estimatedMinutes || 30) * 60, date, startTime, true, customerName, projectName);
         }} />;
       case 'settings':
-        return <SettingsView session={session} onSettingsChange={(s) => setAppSettings({
-          psychedelic_mode: s.psychedelic_mode, ai_persona: s.ai_persona, auto_memo: s.auto_memo,
-          email_recipient: s.email_recipient, email_sender_name: s.email_sender_name,
-          email_sender_company: s.email_sender_company, email_signature: s.email_signature,
-        })} />;
+        return <SettingsView
+          session={session}
+          onSettingsChange={(s) => setAppSettings({
+            psychedelic_mode: s.psychedelic_mode, ai_persona: s.ai_persona, auto_memo: s.auto_memo,
+            email_recipient: s.email_recipient, email_sender_name: s.email_sender_name,
+            email_sender_company: s.email_sender_company, email_signature: s.email_signature,
+          })}
+          onGoogleConnected={() => fetchGoogleData(session || undefined)}
+        />;
+      case 'tools':
+        return <ToolsView />;
       default:
         return null;
     }
@@ -377,7 +353,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Login screen when not authenticated
   if (!session) {
     return (
       <div className="flex h-screen items-center justify-center bg-zinc-50/20">
@@ -421,7 +396,6 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <header className="h-14 md:h-16 border-b-2 border-zinc-100 bg-white flex items-center justify-between px-3 md:px-8 shrink-0 z-10">
           <div className="flex items-center gap-2 md:gap-6 min-w-0">
-            {/* モバイル用ハンバーガー */}
             <button
               onClick={() => setIsSidebarOpen(true)}
               className="md:hidden p-2 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all shrink-0"
@@ -461,11 +435,11 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2 md:gap-4 shrink-0">
             {googleError ? (
               <button
-                onClick={handleGoogleLogin}
-                className="flex items-center gap-1.5 text-[10px] md:text-xs font-black text-white bg-red-600 px-2 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-red-700 transition-all cursor-pointer shadow-lg shadow-red-200 animate-pulse"
+                onClick={() => setCurrentView('settings')}
+                className="flex items-center gap-1.5 text-[10px] md:text-xs font-black text-white bg-amber-600 px-2 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-amber-700 transition-all cursor-pointer shadow-lg shadow-amber-200"
               >
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span className="hidden sm:inline">Googleに再ログイン</span>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                <span className="hidden sm:inline">Googleと連携</span>
               </button>
             ) : isGoogleConnected ? (
               <div className="hidden md:flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">

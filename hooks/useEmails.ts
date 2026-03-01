@@ -30,24 +30,24 @@ function dbToEmail(row: DbEmail): Email {
   };
 }
 
+export type GmailFetchResult = 'success' | 'token_error' | 'cache_fallback';
+
 export function useEmails(session: Session | null) {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(false);
   const userId = session?.user?.id;
 
-  const fetchFromGmail = useCallback(async () => {
-    if (!session) return;
+  const fetchFromGmail = useCallback(async (): Promise<GmailFetchResult> => {
+    if (!session) return 'token_error';
     setLoading(true);
 
     try {
-      // gws.gmail を使って最新10件のメッセージを取得
       const gmailData = await gws.gmail.listMessages({
         maxResults: 10,
         labelIds: ['INBOX'],
       });
 
       if (gmailData && Array.isArray(gmailData)) {
-        // GmailMessage → Email mapping
         const mapped: Email[] = gmailData.map((m: { id: string; from?: string; subject?: string; snippet?: string; date?: string; labelIds?: string[] }) => ({
           id: m.id,
           sender: m.from || '',
@@ -58,7 +58,6 @@ export function useEmails(session: Session | null) {
         }));
         setEmails(mapped);
 
-        // Cache to Supabase
         if (userId && mapped.length > 0) {
           const dbRows = mapped.map(e => ({
             id: e.id,
@@ -77,10 +76,20 @@ export function useEmails(session: Session | null) {
             .upsert(dbRows, { onConflict: 'id' });
         }
       }
-    } catch (err) {
+      setLoading(false);
+      return 'success';
+    } catch (err: any) {
       console.error('Failed to fetch Gmail:', err);
 
-      // Fallback: load from cache
+      const msg = String(err?.message || '');
+      const isTokenError = msg.includes('token') || msg.includes('auth') || msg.includes('401') || msg.includes('403') || err?.reauthenticate;
+
+      if (isTokenError) {
+        setLoading(false);
+        return 'token_error';
+      }
+
+      // Network error: fallback to cache
       if (userId) {
         const { data } = await supabase
           .from('emails')
@@ -93,9 +102,10 @@ export function useEmails(session: Session | null) {
           setEmails((data as DbEmail[]).map(dbToEmail));
         }
       }
-    }
 
-    setLoading(false);
+      setLoading(false);
+      return 'cache_fallback';
+    }
   }, [session, userId]);
 
   const markAsRead = useCallback(async (emailId: string) => {

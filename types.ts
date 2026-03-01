@@ -1,5 +1,5 @@
 
-export type ViewType = 'today' | 'inbox' | 'planner' | 'schedule' | 'metrics' | 'habits' | 'settings' | 'project-detail' | 'task-view' | 'customer-view';
+export type ViewType = 'today' | 'inbox' | 'planner' | 'schedule' | 'metrics' | 'habits' | 'settings' | 'project-detail' | 'task-view' | 'customer-view' | 'tools';
 
 export interface Email {
   id: string;
