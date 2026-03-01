@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { gws } from '../lib/gws';
 import { Email } from '../types';
 
 interface DbEmail {
@@ -40,12 +41,13 @@ export function useEmails(session: Session | null) {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/gmail/messages', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
+      // gws.gmail を使って最新10件のメッセージを取得
+      const gmailData = await gws.gmail.listMessages({
+        maxResults: 10,
+        labelIds: ['INBOX'],
       });
 
-      if (res.ok) {
-        const gmailData = await res.json();
+      if (gmailData && Array.isArray(gmailData)) {
         setEmails(gmailData);
 
         // Cache to Supabase

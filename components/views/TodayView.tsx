@@ -440,7 +440,7 @@ const TodayView: React.FC<TodayViewProps> = ({
     `transition-all duration-300 border-2 ${val.trim() ? 'border-blue-400 bg-blue-50/10' : 'border-blue-200 bg-blue-50/5'} focus:ring-4 focus:ring-blue-100`;
 
   return (
-    <div className="flex flex-col h-full bg-zinc-50/10 overflow-y-auto items-center py-8 px-4 pb-32">
+    <div className="flex flex-col h-full overflow-y-auto custom-scrollbar items-center py-6 px-4 pb-20">
       <CelebrationOverlay trigger={celebrateTrigger} completedCount={completedCount} />
 
       {isRainbow && (
@@ -468,163 +468,135 @@ const TodayView: React.FC<TodayViewProps> = ({
 
       {/* 実行中タイマー */}
       {activeTask && (
-        <div className="w-full max-w-3xl mb-10">
-          <div className="bg-zinc-900 rounded-3xl p-10 shadow-2xl border-4 border-zinc-800 text-white relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-3 h-full bg-zinc-800"></div>
-            <div className="flex justify-between items-center relative z-10">
-              <div>
-                <span className="text-[12px] font-black text-zinc-400 tracking-[0.2em] mb-3 block">現在計測中</span>
-                <h3 className="text-3xl font-black">{activeTask.title}</h3>
-                <p className="text-base text-zinc-400 mt-2 font-bold">{activeTask.customerName} @ {activeTask.projectName}</p>
-              </div>
-              <div className="text-right">
-                <div className="text-6xl font-mono font-black tracking-tighter mb-6">{formatStopwatch(activeTask.timeSpent)}</div>
-                <button 
-                  onClick={() => onToggleTimer(activeTask.id)}
-                  className="bg-white text-zinc-900 hover:bg-red-600 hover:text-white px-10 py-4 rounded-2xl font-black text-base transition-all shadow-xl active:scale-95 cursor-pointer border-2 border-zinc-700 hover:border-red-600"
-                >
-                  計測ストップ
-                </button>
-              </div>
+        <div className="w-full max-w-2xl mb-4 animate-fade-in">
+          <div className="card bg-zinc-900 text-white p-5 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="label-xs text-zinc-500 mb-1">計測中</div>
+              <div className="text-base font-semibold truncate">{activeTask.title}</div>
+              {activeTask.customerName && <div className="text-xs text-zinc-400 mt-0.5">{activeTask.customerName}</div>}
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="text-2xl font-mono font-bold tracking-tight tabular-nums">{formatStopwatch(activeTask.timeSpent)}</div>
+              <button
+                onClick={() => onToggleTimer(activeTask.id)}
+                className="px-4 py-2 rounded-lg bg-white text-zinc-900 text-sm font-semibold hover:bg-red-50 hover:text-red-600 transition-all active:scale-95 cursor-pointer"
+              >
+                停止
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* 入力エリア */}
-      <div className="w-full max-w-3xl mb-10">
-        <div className="bg-white rounded-3xl shadow-xl border-2 border-zinc-50 overflow-hidden">
-          <div className="p-8 space-y-6">
-             <div className="flex justify-between items-center mb-2">
-               <label className="text-[11px] font-black text-blue-500 tracking-widest">新しいタスクの追加 <span className="text-blue-600">*必須</span></label>
-               <button
-                 onClick={() => setIsBulkMode(!isBulkMode)}
-                 className="text-[10px] font-black text-zinc-600 bg-zinc-100 hover:bg-zinc-800 hover:text-white px-3 py-1.5 rounded-full transition-all cursor-pointer border border-zinc-200 hover:border-zinc-800"
-               >
-                 {isBulkMode ? '通常入力に戻す' : 'テキストから一括追加'}
-               </button>
-             </div>
-             
-             {isBulkMode ? (
-               <div className="space-y-4">
-                 <textarea
-                   value={bulkText}
-                   onChange={e => setBulkText(e.target.value)}
-                   placeholder="■13:00–13:15\n・GSX様依頼連絡\n（ご依頼に対するメールの返信）"
-                   className="w-full p-5 rounded-2xl outline-none text-sm font-black text-zinc-800 border-2 border-zinc-100 bg-zinc-50/5 focus:ring-4 focus:ring-zinc-200 min-h-[150px]"
-                 />
-               </div>
-             ) : (
-               <>
-                 <div className="relative">
-                   <input 
-                     value={inputValue}
-                     onChange={(e) => { setInputValue(e.target.value); setShowSuggestions(true); }}
-                     onFocus={() => setShowSuggestions(true)}
-                     placeholder="例: ZENBI 4月号 進行管理・校正依頼" 
-                     className={`w-full p-5 rounded-2xl outline-none text-xl font-black text-zinc-800 ${requiredInputStyle(inputValue)}`}
-                   />
-                   {showSuggestions && filteredSuggestions.length > 0 && (
-                     <div className="absolute left-0 right-0 top-full mt-3 bg-white border-2 border-zinc-100 rounded-2xl shadow-2xl z-50 py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 max-h-[350px] overflow-y-auto custom-scrollbar">
-                       {filteredSuggestions.map((s, i) => (
-                         <button
-                           key={i}
-                           className={`w-full text-left px-5 py-3 hover:bg-zinc-800 hover:text-white border-b border-zinc-50 last:border-0 transition-all cursor-pointer ${
-                             s.isRoutineMatch ? 'bg-blue-50/50' : ''
-                           }`}
-                           onClick={() => {
-                             setInputValue(s.title);
-                             if (s.isRoutineMatch && s.task) {
-                               // テンプレート: 全フィールドを補完
-                               setCustomerInput(s.task.customerName || '');
-                               setProjectInput(s.task.projectName || '');
-                             }
-                             setShowSuggestions(false);
-                           }}
-                         >
-                           <div className="flex justify-between items-center">
-                             <span className="text-sm font-black truncate mr-3">{s.title}</span>
-                             <span className={`text-[9px] px-2.5 py-1 rounded-full shrink-0 font-black ${
-                               s.isRoutineMatch ? 'bg-blue-500 text-white' : 'bg-zinc-100 text-zinc-500'
-                             }`}>
-                               {s.isRoutineMatch ? 'テンプレート' : '過去入力'}
-                             </span>
-                           </div>
-                           {s.isRoutineMatch && s.task && (
-                             <div className="flex items-center gap-2 mt-1 text-[10px] font-bold text-zinc-400">
-                               {s.task.customerName && <span>@{s.task.customerName}</span>}
-                               {s.task.details && <span className="truncate max-w-[200px]">| {s.task.details}</span>}
-                             </div>
-                           )}
-                         </button>
-                       ))}
-                     </div>
-                   )}
-                 </div>
-                 <div className="flex space-x-4">
-                    <div className="flex-1 relative">
-                      <label className="text-[11px] font-black text-blue-300 tracking-widest mb-2 block">顧客名 <span className="text-blue-200">任意</span></label>
-                      <input
-                        value={customerInput}
-                        onChange={(e) => { setCustomerInput(e.target.value); setShowCustomerSuggestions(true); }}
-                        onFocus={() => setShowCustomerSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 200)}
-                        placeholder="例: 全美"
-                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(customerInput)}`}
-                      />
-                      {showCustomerSuggestions && filteredCustomers.length > 0 && (
-                        <div className="absolute left-0 right-0 top-full mt-2 bg-white border-2 border-zinc-100 rounded-2xl shadow-2xl z-50 py-2 max-h-[200px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
-                          {filteredCustomers.map((c, i) => (
-                            <button
-                              key={i}
-                              className="w-full text-left px-5 py-2.5 text-xs text-zinc-700 hover:bg-blue-50 font-black flex justify-between items-center"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => { setCustomerInput(c); setShowCustomerSuggestions(false); }}
-                            >
-                              <span className="truncate">{c}</span>
-                              <span className="text-[9px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full shrink-0 ml-2">顧客DB</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
+      <div className="w-full max-w-2xl mb-5">
+        <div className="card overflow-visible">
+          <div className="p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="label-xs">新規タスク追加</span>
+              <button
+                onClick={() => setIsBulkMode(!isBulkMode)}
+                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-800 px-2.5 py-1 rounded-md hover:bg-zinc-100 transition-all cursor-pointer"
+              >
+                {isBulkMode ? '通常入力' : '一括追加'}
+              </button>
+            </div>
+
+            {isBulkMode ? (
+              <textarea
+                value={bulkText}
+                onChange={e => setBulkText(e.target.value)}
+                placeholder={`■13:00–13:15\n・GSX様 依頼連絡\n（ご依頼に対するメールの返信）`}
+                className="input-base text-xs min-h-[120px] resize-none font-mono"
+              />
+            ) : (
+              <>
+                <div className="relative">
+                  <input
+                    value={inputValue}
+                    onChange={e => { setInputValue(e.target.value); setShowSuggestions(true); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    placeholder="タスク名を入力..."
+                    className="input-base text-sm font-medium"
+                  />
+                  {showSuggestions && filteredSuggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-lg shadow-lg z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar animate-fade-in">
+                      {filteredSuggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          className="w-full text-left px-3.5 py-2.5 hover:bg-zinc-50 border-b border-zinc-50 last:border-0 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setInputValue(s.title);
+                            if (s.isRoutineMatch && s.task) {
+                              setCustomerInput(s.task.customerName || '');
+                              setProjectInput(s.task.projectName || '');
+                            }
+                            setShowSuggestions(false);
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-zinc-800 font-medium truncate">{s.title}</span>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 font-medium ${
+                              s.isRoutineMatch ? 'bg-blue-50 text-blue-600' : 'bg-zinc-100 text-zinc-400'
+                            }`}>
+                              {s.isRoutineMatch ? 'テンプレ' : '履歴'}
+                            </span>
+                          </div>
+                          {s.isRoutineMatch && s.task?.customerName && (
+                            <div className="text-[11px] text-zinc-400 mt-0.5">{s.task.customerName}</div>
+                          )}
+                        </button>
+                      ))}
                     </div>
-                    <div className="flex-1">
-                      <label className="text-[11px] font-black text-blue-300 tracking-widest mb-2 block">案件名 <span className="text-blue-200">任意</span></label>
-                      <input
-                        value={projectInput}
-                        onChange={(e) => setProjectInput(e.target.value)}
-                        placeholder="例: 4月号"
-                        className={`w-full text-sm p-4 rounded-2xl outline-none font-black ${optionalInputStyle(projectInput)}`}
-                      />
-                    </div>
-                 </div>
-               </>
-             )}
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      value={customerInput}
+                      onChange={e => { setCustomerInput(e.target.value); setShowCustomerSuggestions(true); }}
+                      onFocus={() => setShowCustomerSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 200)}
+                      placeholder="顧客名"
+                      className="input-base text-sm"
+                    />
+                    {showCustomerSuggestions && filteredCustomers.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-lg shadow-lg z-50 py-1 max-h-48 overflow-y-auto custom-scrollbar animate-fade-in">
+                        {filteredCustomers.map((c, i) => (
+                          <button
+                            key={i}
+                            className="w-full text-left px-3.5 py-2 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors cursor-pointer"
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { setCustomerInput(c); setShowCustomerSuggestions(false); }}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      value={projectInput}
+                      onChange={e => setProjectInput(e.target.value)}
+                      placeholder="案件名"
+                      className="input-base text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-          <div className="bg-zinc-50/30 px-8 py-5 flex items-center justify-between border-t-2 border-zinc-50">
-             <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${isBulkMode ? (bulkText ? 'bg-zinc-700 shadow-lg shadow-zinc-300' : 'bg-zinc-200 animate-pulse') : (inputValue ? 'bg-zinc-700 shadow-lg shadow-zinc-300' : 'bg-zinc-200 animate-pulse')}`}></div>
-                <span className="text-[11px] text-zinc-400 font-black tracking-widest">
-                  {isBulkMode ? (bulkText ? '一括追加できます' : 'テキストを入力してください') : (inputValue ? '登録できます' : 'タスク名を入力してください')}
-                </span>
-             </div>
-             {isBulkMode ? (
-               <button 
-                 onClick={handleBulkSubmit} 
-                 disabled={!bulkText.trim()}
-                 className={`px-10 py-3.5 rounded-2xl text-sm font-black shadow-xl transition-all active:scale-95 cursor-pointer ${bulkText.trim() ? 'bg-zinc-800 text-white hover:bg-blue-600 shadow-zinc-200' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
-               >
-                 一括追加
-               </button>
-             ) : (
-               <button 
-                 onClick={handleAddTask} 
-                 disabled={!inputValue.trim()}
-                 className={`px-10 py-3.5 rounded-2xl text-sm font-black shadow-xl transition-all active:scale-95 cursor-pointer ${inputValue.trim() ? 'bg-zinc-800 text-white hover:bg-blue-600 shadow-zinc-200' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
-               >
-                 タスクを追加
-               </button>
-             )}
+          <div className="border-t border-zinc-100 px-4 py-3 flex items-center justify-end gap-3">
+            {isBulkMode ? (
+              <button onClick={handleBulkSubmit} disabled={!bulkText.trim()} className="btn-primary">
+                一括追加
+              </button>
+            ) : (
+              <button onClick={handleAddTask} disabled={!inputValue.trim()} className="btn-primary">
+                追加
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -674,99 +646,88 @@ const TodayView: React.FC<TodayViewProps> = ({
       )}
 
       {/* タスクリスト */}
-      <div className="w-full max-w-3xl space-y-4">
-        <div className="flex items-center justify-between px-3 mb-6">
-           <div className="flex items-center space-x-4">
-             <h3 className="text-sm font-black text-slate-800 tracking-[0.2em]">本日のタスク</h3>
-             <span className="text-[11px] bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-black">{filteredTasks.length}</span>
-           </div>
-           <div className="flex items-center space-x-3">
-              <input 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="タスク、顧客、案件で検索..." 
-                className="bg-white border-2 border-zinc-50 text-[11px] font-black px-5 py-2.5 rounded-full outline-none focus:ring-4 ring-zinc-800/10 w-56 transition-all"
-              />
-           </div>
+      <div className="w-full max-w-2xl space-y-2">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="label-xs">本日のタスク</span>
+            <span className="text-[11px] bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full font-medium">{filteredTasks.length}</span>
+          </div>
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="検索..."
+            className="bg-white border border-zinc-200 text-xs px-3 py-1.5 rounded-lg outline-none focus:border-zinc-400 w-36 transition-all"
+          />
         </div>
 
         {filteredTasks.length > 0 ? filteredTasks.map(task => {
           const isActive = activeTaskId === task.id;
           const isSelected = selectedTaskId === task.id;
           return (
-            <div key={task.id} className={`rounded-2xl border p-4 sm:p-6 flex flex-col transition-all ${
-              task.completed
-                ? 'opacity-50 bg-slate-50 border-slate-200'
-                : isActive
-                  ? 'bg-white border-indigo-600 ring-4 ring-indigo-100 shadow-2xl scale-[1.01]'
-                  : 'bg-white border-slate-200 hover:border-indigo-300 shadow-sm hover:shadow-lg'
+            <div key={task.id} className={`card-interactive flex flex-col transition-all ${
+              task.completed ? 'opacity-40' :
+              isActive ? 'border-zinc-900 ring-2 ring-zinc-900/10' : ''
             }`}>
-              <div className="flex items-center w-full">
+              <div className="flex items-center gap-3 p-4">
+                {/* チェックボックス */}
                 <button
                   onClick={() => handleToggleWithCelebration(task.id)}
-                  className={`w-8 h-8 rounded-xl border-[3px] flex items-center justify-center shrink-0 mr-4 sm:mr-6 transition-all cursor-pointer ${
+                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                     task.completed
-                      ? `text-white shadow-lg ${isRainbow ? 'rainbow-check-done' : 'bg-indigo-700 border-indigo-700'}`
-                      : `hover:border-indigo-500 hover:bg-indigo-50 hover:scale-110 ${isRainbow ? 'rainbow-check' : 'border-slate-300'}`
+                      ? `border-zinc-800 bg-zinc-800 ${isRainbow ? 'rainbow-check-done' : ''}`
+                      : `border-zinc-300 hover:border-zinc-500 ${isRainbow ? 'rainbow-check' : ''}`
                   }`}
                 >
-                  {task.completed && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="4"/></svg>}
+                  {task.completed && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="3"/></svg>}
                 </button>
-                
+
+                {/* タスク情報 */}
                 <div
-                  className="flex-1 min-w-0 cursor-pointer group hover:bg-slate-50 rounded-xl px-2 py-1 -mx-2 -my-1 transition-all"
+                  className="flex-1 min-w-0 cursor-pointer"
                   onClick={() => onSelectTask(task.id)}
                 >
-                  <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
-                    {task.startTime && <span className="text-[10px] bg-indigo-900 text-white px-2 sm:px-3 py-1 rounded-full font-black tracking-tighter shadow-sm whitespace-nowrap">{task.startTime}</span>}
-                    <span className={`text-base sm:text-lg font-black truncate group-hover:text-indigo-700 transition-colors ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task.title}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {task.startTime && <span className="text-[10px] font-medium text-zinc-500 tabular-nums">{task.startTime}</span>}
+                    <span className={`text-sm font-semibold truncate ${
+                      task.completed ? 'line-through text-zinc-400' : 'text-zinc-800'
+                    }`}>{task.title}</span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-[11px] font-black text-slate-400">
-                    {task.customerName && <span className="text-slate-500 tracking-tighter">@{task.customerName}</span>}
-                    {task.projectName && <span className="text-slate-300 hidden sm:inline">|</span>}
-                    {task.projectName && <span className="text-slate-400 tracking-tighter">{task.projectName}</span>}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {task.customerName && <span className="text-xs text-zinc-400">{task.customerName}</span>}
+                    {task.projectName && <span className="text-xs text-zinc-300">{task.projectName}</span>}
                     {extractCategories(task.title, task.details).map(cat => (
-                      <span key={cat.name} className="text-[9px] font-black px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: cat.color }}>
-                        {cat.icon} {cat.name}
+                      <span key={cat.name} className="text-[10px] font-medium px-1.5 py-0.5 rounded text-white" style={{ backgroundColor: cat.color + 'cc' }}>
+                        {cat.name}
                       </span>
-                    ))}
-                    {extractSoftware(task.title, task.details).map(sw => (
-                      <a
-                        key={sw.name}
-                        href={sw.protocol}
-                        className="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-indigo-800 hover:text-white transition-all cursor-pointer"
-                        title={`${sw.name} を開く`}
-                      >
-                        {sw.icon} {sw.name}
-                      </a>
                     ))}
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-4 sm:space-x-8 ml-2 sm:ml-8 shrink-0">
+                {/* タイマー */}
+                <div className="flex items-center gap-3 shrink-0">
                   <div className="text-right hidden sm:block">
+                    <div className={`text-sm font-mono font-semibold tabular-nums ${
+                      isActive ? 'text-zinc-900' : 'text-zinc-400'
+                    }`}>{formatStopwatch(task.timeSpent)}</div>
                     {(task.timerStartedAt || task.timerStoppedAt) && (
-                      <div className="text-[11px] font-mono font-black text-indigo-700 mb-0.5 flex items-center justify-end gap-1">
-                        {task.timerStartedAt && <span>{task.timerStartedAt}</span>}
-                        <span className="text-slate-300">→</span>
-                        {task.timerStoppedAt ? <span>{task.timerStoppedAt}</span> : isActive ? <span className="text-indigo-500 animate-pulse">計測中</span> : <span className="text-slate-300">--:--</span>}
+                      <div className="text-[10px] text-zinc-400 tabular-nums">
+                        {task.timerStartedAt}→{task.timerStoppedAt || (isActive ? '計測中' : '--')}
                       </div>
                     )}
-                    <div className={`text-xl font-mono font-black ${isActive ? 'text-slate-900' : 'text-slate-600'}`}>{formatStopwatch(task.timeSpent)}</div>
-                    <div className="text-[9px] text-slate-400 font-black tracking-widest">実績時間</div>
                   </div>
                   {!task.completed && (
-                    <button 
+                    <button
                       onClick={() => onToggleTimer(task.id)}
-                      className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all shadow-lg active:scale-90 border cursor-pointer ${isActive ? 'bg-white text-indigo-800 border-indigo-600 shadow-indigo-100 hover:bg-indigo-50' : 'bg-indigo-800 text-white hover:bg-indigo-700 border-indigo-800 shadow-slate-200'}`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-90 cursor-pointer border ${
+                        isActive
+                          ? 'bg-zinc-900 text-white border-zinc-900 hover:bg-red-600 hover:border-red-600'
+                          : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-900 hover:text-zinc-900'
+                      }`}
                     >
-                      {isActive ? (
-                        <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-                      ) : (
-                        <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                      )}
+                      {isActive
+                        ? <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                        : <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                      }
                     </button>
                   )}
                 </div>
@@ -859,9 +820,9 @@ const TodayView: React.FC<TodayViewProps> = ({
             </div>
           );
         }) : (
-          <div className="py-24 flex flex-col items-center justify-center text-center opacity-30">
-            <svg className="w-20 h-20 mb-6 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeWidth="1.5"/></svg>
-            <p className="text-lg font-black text-slate-300 tracking-[0.3em]">タスクが見つかりません</p>
+          <div className="py-16 flex flex-col items-center justify-center text-center">
+            <svg className="w-10 h-10 mb-3 text-zinc-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeWidth="1.5"/></svg>
+            <p className="text-sm text-zinc-300 font-medium">タスクなし</p>
           </div>
         )}
       </div>
@@ -994,7 +955,7 @@ const TodayView: React.FC<TodayViewProps> = ({
         );
       })()}
 
-      <div className="mt-10 w-full max-w-2xl">
+      <div className="mt-8 w-full max-w-2xl">
         <GeminiSummary tasks={tasks} targetDate={targetDate} emailFormat={emailFormat} />
       </div>
     </div>

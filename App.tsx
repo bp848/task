@@ -17,6 +17,7 @@ import { initialProjects } from './constants';
 import { supabase } from './lib/supabase';
 import { useZenworkTasks } from './hooks/useZenworkTasks';
 import { useEmails } from './hooks/useEmails';
+import { gws } from './lib/gws';
 
 const viewTitleMap: Record<ViewType, string> = {
   'today': '本日の業務',
@@ -200,48 +201,42 @@ const App: React.FC = () => {
     const s = currentSession || session;
     if (!s) return;
 
-    const token = s.access_token;
     setGoogleError(null);
 
-    // Fetch Gmail
-    try {
-      const emailRes = await fetch('/api/gmail/messages', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (emailRes.ok) {
-        const emailData = await emailRes.json();
-        setEmails(emailData);
-      } else {
-        const errData = await emailRes.json().catch(() => ({}));
-        console.error('Gmail error:', emailRes.status, errData);
-        if (emailRes.status === 401) {
-          setGoogleError(`Google認証エラー: ${errData.error || '再ログインしてください'}`);
-        } else if (emailRes.status === 500) {
-          setGoogleError(`サーバーエラー: ${errData.error || 'Gmail取得に失敗'}`);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch Gmail:', err);
-      setGoogleError('Gmail接続エラー: サーバーに接続できません');
-    }
+    // Fetch Gmail using the custom hook
+    await fetchFromGmail();
 
     // Fetch Calendar events and merge as non-persisted tasks
     try {
-      const calRes = await fetch(`/api/calendar/events?date=${targetDate}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const startOfDay = new Date(targetDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(targetDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const events = await gws.calendar.listEvents({
+        timeMin: startOfDay.toISOString(),
+        timeMax: endOfDay.toISOString(),
       });
-      if (calRes.ok) {
-        const calData = await calRes.json();
-        mergeCalendarTasks(calData);
-      } else {
-        const errData = await calRes.json().catch(() => ({}));
-        console.error('Calendar error:', calRes.status, errData);
-        if (!googleError) {
-          setGoogleError(`カレンダーエラー: ${errData.error || '再ログインしてください'}`);
-        }
+      
+      if (events) {
+        // gws-supabase-kit の形式に合わせて変換 (必要なら)
+        // mergeCalendarTasks はバックエンドや旧APIで想定していた形になっているかもしれないため、
+        // 適切にマッピングする処理が必要になる場合があります。
+        const mappedEvents = events.map((event: any) => ({
+          id: event.id,
+          title: event.summary,
+          startTime: event.start?.dateTime || event.start?.date,
+          endTime: event.end?.dateTime || event.end?.date,
+          description: event.description,
+          tags: ['Google Calendar'],
+        }));
+        mergeCalendarTasks(mappedEvents);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch Calendar:', err);
+      if (err.message?.includes('auth') || err.message?.includes('token')) {
+        setGoogleError(`カレンダーエラー: 再ログインしてください`);
+      }
     }
   };
 
@@ -425,13 +420,20 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-16 border-b-2 border-zinc-100 bg-white flex items-center justify-between px-8 shrink-0 z-10">
-          <div className="flex items-center space-x-6">
-            <h1 className="text-base font-black text-zinc-800 tracking-widest">
+        <header className="h-14 md:h-16 border-b-2 border-zinc-100 bg-white flex items-center justify-between px-3 md:px-8 shrink-0 z-10">
+          <div className="flex items-center gap-2 md:gap-6 min-w-0">
+            {/* モバイル用ハンバーガー */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 rounded-lg hover:bg-zinc-100 text-zinc-500 transition-all shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 className="text-sm md:text-base font-black text-zinc-800 tracking-widest truncate">
               {currentView === 'project-detail' ? projects.find(p => p.id === selectedProjectId)?.name : viewTitleMap[currentView]}
             </h1>
             {currentView === 'planner' ? (
-              <div className="flex items-center space-x-2">
+              <div className="hidden sm:flex items-center space-x-2">
                 <button onClick={() => setPlannerWeekOffset(w => w - 1)} className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center hover:bg-slate-100 transition-all text-slate-500 cursor-pointer">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
                 </button>
@@ -443,47 +445,46 @@ const App: React.FC = () => {
                   onClick={() => setPlannerBulkMode(v => !v)}
                   className={`ml-2 px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer border ${plannerBulkMode ? 'bg-indigo-800 text-white border-indigo-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
                 >
-                  {plannerBulkMode ? '一括追加を閉じる' : 'テキストから一括追加'}
+                  {plannerBulkMode ? '閉じる' : '一括追加'}
                 </button>
               </div>
             ) : (
-              <div className="flex items-center space-x-3 text-[11px] font-black text-zinc-300">
-                <span className="tracking-widest">表示日:</span>
+              <div className="hidden sm:flex items-center space-x-2 text-[11px] font-black text-zinc-300">
                 <input
                   type="date"
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
-                  className="bg-zinc-50 px-4 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100"
+                  className="bg-zinc-50 px-3 py-1.5 rounded-full text-zinc-900 font-black outline-none cursor-pointer hover:bg-zinc-100 transition-all shadow-inner border border-zinc-100 text-xs"
                 />
               </div>
             )}
           </div>
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center gap-2 md:gap-4 shrink-0">
             {googleError ? (
               <button
                 onClick={handleGoogleLogin}
-                className="flex items-center space-x-2 text-xs font-black text-white bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 transition-all cursor-pointer shadow-lg shadow-red-200 animate-pulse"
+                className="flex items-center gap-1.5 text-[10px] md:text-xs font-black text-white bg-red-600 px-2 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-red-700 transition-all cursor-pointer shadow-lg shadow-red-200 animate-pulse"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                <span>Googleに再ログイン（Gmail/カレンダー）</span>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span className="hidden sm:inline">Googleに再ログイン</span>
               </button>
             ) : isGoogleConnected ? (
-              <div className="flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
+              <div className="hidden md:flex items-center space-x-2 text-[10px] font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
                 <span>Google 接続済み</span>
               </div>
             ) : null}
             {activeTaskId && (
-              <div className="flex items-center space-x-3 bg-zinc-800 text-white px-4 py-1.5 rounded-full shadow-lg shadow-zinc-200">
-                <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
-                <span className="text-[11px] font-black tracking-widest">時間計測中...</span>
+              <div className="flex items-center gap-2 bg-zinc-800 text-white px-3 py-1.5 rounded-full shadow-lg shadow-zinc-200">
+                <div className="w-2 h-2 bg-white rounded-full animate-ping shrink-0"></div>
+                <span className="text-[10px] font-black tracking-widest hidden sm:inline">計測中...</span>
               </div>
             )}
-            <div className="flex items-center space-x-3">
-              <div className="text-[11px] font-black text-zinc-400 tracking-wider">
+            <div className="flex items-center gap-1.5 md:gap-3">
+              <div className="hidden md:block text-[11px] font-black text-zinc-400 tracking-wider">
                 {clockTime.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}
               </div>
-              <div className="text-lg font-mono font-black text-zinc-800 tracking-tight tabular-nums">
+              <div className="text-sm md:text-lg font-mono font-black text-zinc-800 tracking-tight tabular-nums">
                 {clockTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
             </div>

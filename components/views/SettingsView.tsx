@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
+import { useGoogleAuth } from 'gws-supabase-kit';
+import { gws } from '../../lib/gws';
 
 interface SettingsViewProps {
   session: Session | null;
@@ -45,6 +47,25 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [saving, setSaving] = useState(false);
   const userId = session?.user?.id;
+
+  const { isConnected, isLoading, startOAuth, handleCallback } = useGoogleAuth({
+    supabase: gws.supabase,
+    config: {
+      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+      redirectUri: import.meta.env.VITE_GOOGLE_REDIRECT_URI || '',
+      usePKCE: true,
+    },
+    exchangeCodeUrl: gws.exchangeCodeUrl,
+  });
+
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code) {
+      handleCallback(code).then(() => {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -136,6 +157,26 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange }
                     >
                        {toneOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
+                 </div>
+
+                 <div className="flex items-center justify-between p-5 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">
+                    <div>
+                      <span className="text-sm font-black text-zinc-700">Google Workspace連携</span>
+                      <p className="text-[10px] text-zinc-400 font-bold mt-1">
+                        {isConnected ? '連携済み。メールやカレンダーにアクセスできます。' : 'GmailとCalendarに接続します。'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={startOAuth}
+                      disabled={isLoading || isConnected}
+                      className={`px-4 py-2 rounded-xl text-xs font-black shadow-sm transition-all ${
+                        isConnected
+                          ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                          : 'bg-zinc-900 text-white hover:bg-zinc-800'
+                      }`}
+                    >
+                      {isLoading ? '処理中...' : isConnected ? '連携済み' : 'Googleと連携'}
+                    </button>
                  </div>
 
                  <div className="p-5 bg-white rounded-2xl border-2 border-zinc-50 shadow-sm">

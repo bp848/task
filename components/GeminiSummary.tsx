@@ -249,14 +249,14 @@ ${signature}`;
         </div>
       )}
 
-      {/* 日報メール生成ボタン */}
+      {/* 報告メール送信ボタン */}
       <button
         onClick={generateDailyReport}
         disabled={loading}
         className="w-full bg-zinc-900 text-white py-5 rounded-2xl font-black text-sm hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center justify-center space-x-3 shadow-xl shadow-zinc-200 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed border border-zinc-700"
       >
-        <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-        <span className="tracking-widest">{loading ? '生成中...' : '{`${senderName}→${recipient} 日報メールを生成`}'}</span>
+        <svg className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+        <span className="tracking-widest">{loading ? '生成中...' : `${recipient}へ報告メールを送る`}</span>
       </button>
 
       {report && (
