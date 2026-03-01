@@ -14,10 +14,9 @@ import CustomerView from './components/views/CustomerView';
 import AiWorkHub from './components/AiWorkHub';
 import { ViewType, Task, Project, Email } from './types';
 import { initialProjects } from './constants';
-import { supabase } from './lib/supabase';
+import { supabase, gws } from './lib/gws';
 import { useZenworkTasks } from './hooks/useZenworkTasks';
 import { useEmails } from './hooks/useEmails';
-import { gws } from './lib/gws';
 
 const viewTitleMap: Record<ViewType, string> = {
   'today': '本日の業務',

@@ -1,9 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '../../lib/supabase';
+import { supabase, gws } from '../../lib/gws';
 import { useGoogleAuth } from 'gws-supabase-kit';
-import { gws } from '../../lib/gws';
 
 interface SettingsViewProps {
   session: Session | null;

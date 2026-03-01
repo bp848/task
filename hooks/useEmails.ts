@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import { gws } from '../lib/gws';
+import { supabase, gws } from '../lib/gws';
 import { Email } from '../types';
 
 interface DbEmail {

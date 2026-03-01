@@ -11,3 +11,6 @@ export const gws = new GwsKit({
   supabaseUrl,
   supabaseAnonKey,
 });
+
+// 全ファイルで gws.supabase を使う（lib/supabase.ts は不要）
+export const supabase = gws.supabase;
