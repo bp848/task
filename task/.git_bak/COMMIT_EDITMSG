@@ -1,0 +1,9 @@
+style: FXGTスタイルに変更 — tealアクセント・大きめフォント・広い余白
+
+- index.css: teal(#0D9488)アクセントカラー、15px基準フォント、行間1.6
+- Sidebar: tealアクティブ状態、広い余白、w-60
+- App.tsx: ヘッダーをクリーンに、tealアクセントボタン
+- SettingsView: zinc→gray、font-black→font-semibold、丸角・枠線統一
+- ToolsView: tealアクセント、読みやすいフォントサイズ
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>

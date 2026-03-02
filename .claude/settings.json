@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gcloud.cmd run revisions list --service zenwork-mini --region asia-northeast1 --project aidriven-mastering-fyqu --limit 3 --format=\"table\\(name,status.conditions[0].status,createTime\\)\")",
+      "Bash(gcloud.cmd run services describe zenwork-mini --region asia-northeast1 --project aidriven-mastering-fyqu --format=\"value\\(status.latestCreatedRevisionName,status.latestReadyRevisionName\\)\")",
+      "WebFetch(domain:zenwork-mini-270124753853.asia-northeast1.run.app)",
+      "Bash(git add lib/gws.ts Dockerfile vercel.json)",
+      "mcp__claude_ai_Vercel__deploy_to_vercel",
+      "Bash(npx vercel --prod --yes)",
+      "Bash(ls -la \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit\"*)",
+      "Bash(find \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)\" -type f)",
+      "Bash(ls \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/dist/\")",
+      "Bash(ls \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/src/\")",
+      "Bash(ls \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/src/components/\")",
+      "Bash(ls -la \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/\")",
+      "Bash(ls -la \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/src/\")",
+      "Read(//c/Users/ishij/AppData/Local/Temp/gws-kit-build/**)",
+      "Bash(find \"c:\\\\Users\\\\ishij\\\\OneDrive\\\\Documents\\\\GitHub\\\\task\\\\task\\\\gws-supabase-kit \\(1\\)\\\\gws-supabase-kit\" -type f -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.json\" -o -name \"*.js\")",
+      "Bash(ls -la \"c:\\\\Users\\\\ishij\\\\OneDrive\\\\Documents\\\\GitHub\\\\task\\\\task\\\\gws-supabase-kit \\(1\\)\\\\gws-supabase-kit\"\")",
+      "Bash(find \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit\" -type f)",
+      "Bash(cat \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/package.json\")",
+      "Bash(cat \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/src/index.ts\")",
+      "Bash(ls -la \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/dist\")",
+      "Bash(npx supabase --version)",
+      "Bash(ls -la \"/c/Users/ishij/OneDrive/Documents/GitHub/task/task/gws-supabase-kit \\(1\\)/gws-supabase-kit/supabase/functions/\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp\\gws-mcp-superbase\\dist",
+      "\\tmp"
+    ]
+  }
+}

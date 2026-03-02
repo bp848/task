@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@theme {
+  --font-sans: "Inter", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+  --color-accent: #0D9488;
+  --color-accent-dark: #0F766E;
+  --color-accent-light: #CCFBF1;
+  --color-accent-50: #F0FDFA;
+  --color-surface: #FFFFFF;
+  --color-surface-variant: #F5F5F5;
+  --color-outline: #E0E0E0;
+  --color-outline-variant: #EEEEEE;
+}
+
+/* ========================================
+   DESIGN SYSTEM — Clean & Readable
+   ======================================== */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  body {
+    @apply bg-white text-gray-800;
+    font-feature-settings: "kern" 1, "liga" 1;
+    letter-spacing: 0;
+  }
+
+  input, textarea, select {
+    font-family: inherit;
+    font-size: inherit;
+  }
+
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ========================================
+   SCROLLBAR
+   ======================================== */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 99px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.label-xs {
+  @apply text-xs font-semibold tracking-wide text-gray-400 uppercase;
+}
+
+.card {
+  @apply bg-white rounded-lg border border-[var(--color-outline)] shadow-sm;
+}
+
+.card-interactive {
+  @apply bg-white rounded-lg border border-[var(--color-outline)] shadow-sm transition-all
+    duration-150 hover:shadow-md;
+}
+
+.input-base {
+  @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm
+    text-gray-800 placeholder:text-gray-400 outline-none transition-all
+    duration-150 focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent)]/10;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg
+    px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all
+    duration-150 active:scale-[0.98] disabled:opacity-40
+    disabled:cursor-not-allowed;
+  background-color: var(--color-accent);
+}
+.btn-primary:hover {
+  background-color: var(--color-accent-dark);
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border
+    border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700
+    shadow-sm transition-all duration-150 hover:bg-gray-50 hover:border-gray-300
+    active:scale-[0.98];
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in-up { animation: fade-in-up 0.2s ease-out both; }
+.animate-fade-in { animation: fade-in 0.15s ease-out both; }
+.animate-slide-in-right { animation: slide-in-right 0.25s ease-out both; }
+
+/* ========================================
+   SIDEBAR
+   ======================================== */
+.sidebar-item {
+  @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium
+    text-gray-500 transition-all duration-150 w-full cursor-pointer
+    hover:bg-gray-100 hover:text-gray-800;
+}
+.sidebar-item-active {
+  color: var(--color-accent);
+  background-color: var(--color-accent-50);
+  font-weight: 600;
+}
+.sidebar-item-active:hover {
+  color: var(--color-accent-dark);
+  background-color: var(--color-accent-light);
+}
+
+/* ========================================
+   TABLE STYLES (FXGT-like)
+   ======================================== */
+.data-table {
+  @apply w-full text-sm;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.data-table thead th {
+  @apply text-xs font-semibold text-gray-400 uppercase tracking-wide
+    px-4 py-3 text-left border-b border-gray-200 bg-gray-50/50;
+}
+.data-table tbody td {
+  @apply px-4 py-4 border-b border-gray-100 text-gray-700;
+}
+.data-table tbody tr:hover {
+  @apply bg-gray-50;
+}
+.data-table tbody tr:last-child td {
+  @apply border-b-0;
+}

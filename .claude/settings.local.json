@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -sv \"https://task.b-p.co.jp/\")",
+      "Bash(gcloud run services update zenwork-mini --region asia-northeast1 --project aidriven-mastering-fyqu --update-env-vars \"SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3amhwZmdoaGdzdHZwbG1nZ2tzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODcwODM0NiwiZXhwIjoyMDc0Mjg0MzQ2fQ.sUw6D4YQNMFpZpj3X7UGGqtatVquEOhdvk0nubgwCec\")",
+      "Bash(npx tsup src/index.ts --format cjs,esm --dts)",
+      "Bash(npx supabase projects list)",
+      "Bash(npx supabase login)",
+
+      "Bash(bash .claude/scripts/test-and-log.sh:*)",
+      "Bash(.claude/scripts/test-and-log.sh:*)",
+      "Bash(bash .claude/scripts/pm/*)",
+      "Bash(.claude/scripts/pm/*)",
+
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(grep:*)",
+      "Bash(kill:*)",
+      "Bash(ln:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(pnpm:*)",
+      "Bash(rm:*)",
+      "Bash(sed:*)",
+      "Bash(touch:*)",
+      "Bash(tree:*)",
+      "List(**)",
+      "WebFetch(domain:github.com)",
+      "WebSearch"
+    ]
+  }
+}

@@ -1,0 +1,750 @@
+
+import { GoogleGenAI } from "@google/genai";
+import React, { useEffect, useState, useMemo } from 'react';
+import { Task, Email } from '../types';
+import { extractActionShortcuts, ACTION_SHORTCUTS } from '../constants';
+import { matchToolsForTask, type ToolDefinition } from './views/ToolsView';
+
+interface AiWorkHubProps {
+  task: Task | null;
+  tasks?: Task[];
+  targetDate?: string;
+  onClose: () => void;
+  onUpdateTask?: (id: string, updates: Partial<Task>) => void;
+  aiPersona?: string;
+  autoMemo?: boolean;
+  emails?: Email[];
+  isGoogleConnected?: boolean;
+}
+
+type ToolType = 'gmail' | 'sheets' | 'slack' | 'drive' | null;
+type TabType = 'steps' | 'tools' | 'analysis';
+
+// ペルソナ別のシステムプロンプト
+const PERSONA_PROMPTS: Record<string, string> = {
+  polite: 'あなたは丁寧なビジネスアシスタントです。敬語を使い、簡潔で正確に応答してください。',
+  comedian: 'あなたはお笑い芸人風のアシスタントです。ボケやツッコミを交えつつ、要点はしっかり伝えてください。「なんでやねん！」「ほな」などの関西弁も使ってOK。',
+  cat: 'あなたは猫のアシスタントにゃ。語尾に「にゃ」「にゃん」をつけて、猫っぽく応答するにゃ。でも仕事の内容は正確に伝えるにゃ。',
+  dog: 'あなたは犬のアシスタントわん！語尾に「わん」「ワン」をつけて、元気よく応答するわん！ご主人様のタスクを全力サポートわん！',
+  newscaster: 'あなたはニュースキャスター風のアシスタントです。「お伝えします」「続いてのニュースです」のように、報道調で格調高く応答してください。',
+  auntie: 'あなたは世話好きなおば様のアシスタントよ。「あらまあ」「ちゃんとしなきゃダメよ」のような口調で、温かく世話を焼きながら応答してね。',
+  principal: 'あなたは校長先生風のアシスタントです。「諸君」「心がけたまえ」のような堅い口調で、教訓を交えながら応答してください。',
+  classmate: 'あなたは同級生のアシスタントだよ！タメ口で「マジで」「やばくない？」とかカジュアルに話しつつ、ちゃんと仕事は手伝うよ！',
+  doraemon: 'あなたは未来から来た青いロボット猫のアシスタントです。「ボクに任せて！」「ひみつ道具〜！」のように、明るく頼もしく応答してください。ポケットからいろんな解決策を出す感じで。',
+  pikachu: 'あなたは黄色いモンスター風のアシスタントです。「ピカ！」を時々挟みつつ、電気のようにエネルギッシュに応答してください。でも内容はしっかり伝えます。',
+};
+
+const getEndTime = (startTime: string, seconds: number): string => {
+  const [h, m] = startTime.split(':').map(Number);
+  const totalMins = h * 60 + m + Math.ceil(seconds / 60);
+  const eh = Math.floor(totalMins / 60) % 24;
+  const em = totalMins % 60;
+  return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+};
+
+const getTimeSlot = (startTime?: string, timeSpent?: number, estimatedTime?: number): string => {
+  if (!startTime) return '??:??–??:??';
+  const duration = (timeSpent && timeSpent > 0) ? timeSpent : (estimatedTime || 0);
+  if (!duration) return `${startTime}–??:??`;
+  return `${startTime}–${getEndTime(startTime, duration)}`;
+};
+
+const buildTimeGroupedTaskList = (tasks: Task[]): string => {
+  const timeGroups: Record<string, Task[]> = {};
+  tasks.forEach(t => {
+    const start = t.startTime || '??:??';
+    let end = t.endTime;
+    if (!end && t.startTime) {
+      const duration = (t.timeSpent && t.timeSpent > 0) ? t.timeSpent : (t.estimatedTime || 0);
+      if (duration > 0) {
+        end = getEndTime(t.startTime, duration);
+      } else {
+        end = '??:??';
+      }
+    } else if (!end) {
+      end = '??:??';
+    }
+    const timeKey = `■${start}–${end}`;
+    if (!timeGroups[timeKey]) timeGroups[timeKey] = [];
+    timeGroups[timeKey].push(t);
+  });
+
+  return Object.entries(timeGroups)
+    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+    .map(([timeKey, tasksInGroup]) => {
+      const tasksStr = tasksInGroup.map(t => {
+        let str = `・${t.title}`;
+        if (t.details) {
+          const detailsLines = t.details.split('\n').map(d => {
+            if (d.startsWith('（') || d.startsWith('(')) return d;
+            return `（${d}）`;
+          }).join('\n');
+          str += `\n${detailsLines}`;
+        }
+        return str;
+      }).join('\n');
+      return `${timeKey}\n${tasksStr}`;
+    })
+    .join('\n');
+};
+
+// --- タスク詳細テキストからアクションステップを抽出 ---
+const parseActionSteps = (title: string, details?: string): { text: string; tool?: { name: string; url: string; icon: string } }[] => {
+  const steps: { text: string; tool?: { name: string; url: string; icon: string } }[] = [];
+  const fullText = details || title;
+
+  // 「・」「、」「,」「/」「→」「⇒」で分割 or 改行で分割
+  const parts = fullText.split(/[・、,\/→⇒\n]+/).map(s => s.trim()).filter(Boolean);
+
+  if (parts.length <= 1 && fullText.trim()) {
+    // 分割できなかった場合はタイトル全体を1ステップとして扱う
+    // ただしキーワードで個別アクションを検出
+    const shortcuts = extractActionShortcuts(title, details);
+    if (shortcuts.length > 0) {
+      shortcuts.forEach(sc => {
+        steps.push({ text: `${sc.keyword}`, tool: { name: sc.name, url: sc.url, icon: sc.icon } });
+      });
+    } else {
+      steps.push({ text: fullText.trim() });
+    }
+    return steps;
+  }
+
+  parts.forEach(part => {
+    // 各パートにマッチするツールを探す
+    let matchedTool: { name: string; url: string; icon: string } | undefined;
+    for (const [keyword, cfg] of Object.entries(ACTION_SHORTCUTS)) {
+      if (part.includes(keyword)) {
+        matchedTool = { name: cfg.name, url: cfg.url, icon: cfg.icon };
+        break;
+      }
+    }
+    steps.push({ text: part, tool: matchedTool });
+  });
+
+  return steps;
+};
+
+// --- Structured Steps sub-component ---
+const StructuredSteps: React.FC<{
+  task: Task;
+  onUpdateTask?: (id: string, updates: Partial<Task>) => void;
+}> = ({ task, onUpdateTask }) => {
+  const steps = useMemo(() => parseActionSteps(task.title, task.details), [task.title, task.details]);
+  const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    setCheckedSteps(new Set());
+  }, [task.id]);
+
+  const toggleStep = (index: number) => {
+    setCheckedSteps(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const allChecked = steps.length > 0 && checkedSteps.size === steps.length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] font-black text-zinc-500 tracking-widest">作業ステップ</span>
+        <span className="text-[10px] text-zinc-300 font-black">{checkedSteps.size}/{steps.length}</span>
+      </div>
+
+      {steps.map((step, i) => (
+        <div
+          key={i}
+          className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all ${
+            checkedSteps.has(i)
+              ? 'bg-zinc-50 border-zinc-100 opacity-60'
+              : 'bg-white border-zinc-200 shadow-sm'
+          }`}
+        >
+          <button
+            onClick={() => toggleStep(i)}
+            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all cursor-pointer ${
+              checkedSteps.has(i)
+                ? 'bg-zinc-800 border-zinc-800 text-white'
+                : 'border-zinc-300 hover:border-zinc-600'
+            }`}
+          >
+            {checkedSteps.has(i) && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
+            )}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className={`text-sm font-black ${checkedSteps.has(i) ? 'line-through text-zinc-400' : 'text-zinc-800'}`}>
+              <span className="text-zinc-300 mr-2">{i + 1}.</span>
+              {step.text}
+            </div>
+            {step.tool && (
+              <a
+                href={step.tool.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg text-[10px] font-black text-indigo-700 hover:bg-indigo-700 hover:text-white hover:border-indigo-700 transition-all cursor-pointer"
+              >
+                <span>{step.tool.icon}</span>
+                <span>{step.tool.name}を開く</span>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+              </a>
+            )}
+          </div>
+        </div>
+      ))}
+
+      {allChecked && (
+        <div className="bg-green-50 rounded-xl p-4 border-2 border-green-200 text-center animate-in fade-in duration-300">
+          <span className="text-sm font-black text-green-700">全ステップ完了</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Evidence auto-analysis sub-component ---
+const EvidenceAnalysis: React.FC<{
+  task: Task;
+  tasks?: Task[];
+  emails?: Email[];
+  isGoogleConnected?: boolean;
+  onUpdateTask?: (id: string, updates: Partial<Task>) => void;
+  aiPersona: string;
+}> = ({ task, tasks = [], emails = [], isGoogleConnected, onUpdateTask, aiPersona }) => {
+  const [analysis, setAnalysis] = useState<string>('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [evidenceInput, setEvidenceInput] = useState(task.evidence || '');
+  const [includeContext, setIncludeContext] = useState(true);
+
+  useEffect(() => {
+    setEvidenceInput(task.evidence || '');
+    setAnalysis('');
+  }, [task.id]);
+
+  // 関連カレンダー予定を取得（当日のGoogle Calendarタグ付きタスク）
+  const relatedCalendarEvents = useMemo(() => {
+    if (!isGoogleConnected) return [];
+    return tasks.filter(t =>
+      t.tags?.includes('Google Calendar') &&
+      t.date === task.date
+    );
+  }, [tasks, task.date, isGoogleConnected]);
+
+  // 関連メールを取得（顧客名・案件名・タイトルキーワードでマッチ）
+  const relatedEmails = useMemo(() => {
+    if (!isGoogleConnected || emails.length === 0) return [];
+    const keywords = [task.customerName, task.projectName, ...task.title.split(/[\s　・]+/)]
+      .filter((k): k is string => !!k && k.length >= 2);
+    if (keywords.length === 0) return [];
+    return emails.filter(email =>
+      keywords.some(kw =>
+        email.subject?.includes(kw) || email.sender?.includes(kw) ||
+        email.customerName?.includes(kw) || email.snippet?.includes(kw)
+      )
+    ).slice(0, 5);
+  }, [emails, task.customerName, task.projectName, task.title, isGoogleConnected]);
+
+  const buildContextSection = (): string => {
+    if (!includeContext) return '';
+    let context = '';
+
+    if (relatedCalendarEvents.length > 0) {
+      context += '\n\n【関連カレンダー予定】\n';
+      context += relatedCalendarEvents.map(e =>
+        `・${e.startTime || '??:??'}–${e.endTime || '??:??'} ${e.title}`
+      ).join('\n');
+    }
+
+    if (relatedEmails.length > 0) {
+      context += '\n\n【関連メール】\n';
+      context += relatedEmails.map(e =>
+        `・件名: ${e.subject}（${e.sender}）`
+      ).join('\n');
+    }
+
+    return context;
+  };
+
+  const runAnalysis = async () => {
+    const textToAnalyze = evidenceInput || task.details || '';
+    if (!textToAnalyze.trim()) return;
+    setIsAnalyzing(true);
+    setAnalysis('');
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const personaInstruction = PERSONA_PROMPTS[aiPersona] || PERSONA_PROMPTS.polite;
+      const contextSection = buildContextSection();
+
+      const prompt = `${personaInstruction}
+
+以下のタスクの証拠メモ・詳細を分析し、業務改善の観点からフィードバックをください。
+
+【タスク情報】
+タスク名: ${task.title}
+顧客: ${task.customerName || '未設定'}
+案件: ${task.projectName || '未設定'}
+実績時間: ${Math.floor(task.timeSpent / 60)}分
+ステータス: ${task.completed ? '完了' : '進行中'}
+
+【証拠メモ・詳細】
+${textToAnalyze}${contextSection}
+
+以下の観点で分析してください：
+1. 作業内容の要約（箇条書き3点以内）
+2. 所要時間の妥当性（${Math.floor(task.timeSpent / 60)}分）${relatedCalendarEvents.length > 0 ? '（カレンダー予定との整合性も考慮）' : ''}
+3. 改善ポイントや次回への提案${relatedEmails.length > 0 ? '（関連メールの内容も踏まえて）' : ''}
+4. 報告書に使える一文サマリ`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+      });
+      setAnalysis(response.text || '分析結果を取得できませんでした。');
+    } catch {
+      setAnalysis('分析中にエラーが発生しました。');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleSaveEvidence = () => {
+    onUpdateTask?.(task.id, { evidence: evidenceInput });
+  };
+
+  const contextCount = relatedCalendarEvents.length + relatedEmails.length;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="text-[10px] font-black text-zinc-500 tracking-widest block mb-2">証拠メモ</label>
+        <textarea
+          value={evidenceInput}
+          onChange={(e) => setEvidenceInput(e.target.value)}
+          onBlur={handleSaveEvidence}
+          placeholder="作業の証拠・メモを入力...&#10;例: スクリーンショット保存済み、A案で確定、修正3回実施"
+          className="w-full text-xs border-2 border-zinc-200 rounded-xl p-3 min-h-[100px] resize-y outline-none focus:border-blue-400 font-medium text-zinc-700"
+        />
+      </div>
+
+      {isGoogleConnected && contextCount > 0 && (
+        <button
+          onClick={() => setIncludeContext(!includeContext)}
+          className={`w-full py-2 text-[10px] font-bold rounded-xl border-2 transition-all flex items-center justify-center gap-2 ${
+            includeContext
+              ? 'border-blue-200 bg-blue-50 text-blue-700'
+              : 'border-zinc-200 bg-white text-zinc-400'
+          }`}
+        >
+          <span>{includeContext ? '✓' : '○'}</span>
+          カレンダー・メール情報を含める
+          <span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-md text-[9px]">
+            {contextCount}件
+          </span>
+        </button>
+      )}
+
+      <button
+        onClick={runAnalysis}
+        disabled={isAnalyzing || (!evidenceInput.trim() && !task.details)}
+        className="w-full py-3 bg-zinc-800 text-white text-xs font-black rounded-xl hover:bg-zinc-700 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+      >
+        {isAnalyzing ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            解析中...
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+            AI自動解析を実行
+          </>
+        )}
+      </button>
+
+      {analysis && (
+        <div className="bg-blue-50 rounded-2xl p-4 border-2 border-blue-100 animate-in fade-in duration-300">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[10px] font-black text-blue-600 tracking-widest">AI解析結果</span>
+            {includeContext && contextCount > 0 && (
+              <span className="text-[9px] text-blue-400">📅📧 連携データ含む</span>
+            )}
+          </div>
+          <div className="prose prose-sm text-zinc-700 whitespace-pre-wrap leading-relaxed text-xs font-medium">
+            {analysis}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(analysis);
+              }}
+              className="flex-1 py-2 text-[10px] font-black text-zinc-600 border border-zinc-200 rounded-xl hover:bg-zinc-100 transition-all"
+            >
+              コピー
+            </button>
+            <button
+              onClick={() => {
+                const newDetails = task.details ? `${task.details}\n---\n【AI解析】\n${analysis}` : `【AI解析】\n${analysis}`;
+                onUpdateTask?.(task.id, { details: newDetails });
+              }}
+              className="flex-1 py-2 text-[10px] font-black text-white bg-blue-600 rounded-xl hover:bg-blue-500 transition-all"
+            >
+              詳細に追加
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Matched Tool Card (inline widget for sidebar) ---
+const MatchedToolCard: React.FC<{ tool: ToolDefinition; task: Task | null }> = ({ tool, task }) => {
+  const [expanded, setExpanded] = useState(false);
+  const Comp = tool.component;
+
+  return (
+    <div className={`border-2 rounded-xl transition-all ${expanded ? 'border-blue-300 bg-white shadow-lg' : 'border-blue-100 bg-blue-50/50 hover:border-blue-200'}`}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-3 p-3 text-left"
+      >
+        <span className="text-lg flex-shrink-0">{tool.icon}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-gray-800 truncate">{tool.name}</span>
+            <span className="text-[8px] font-black text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded flex-shrink-0">推奨</span>
+          </div>
+          <p className="text-[10px] text-gray-400 truncate">{tool.description}</p>
+        </div>
+        <svg className={`w-4 h-4 text-gray-300 transition-transform flex-shrink-0 ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 border-t border-blue-100">
+          <div className="pt-3">
+            {tool.size === 'fullPage' ? (
+              <div className="text-center py-4 text-xs text-gray-400">
+                <p className="mb-2 font-medium text-gray-600">このツールはフルページで動作します</p>
+                <p>ツール一覧から開いてください</p>
+              </div>
+            ) : (
+              <Comp task={task} />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Main component ---
+const AiWorkHub: React.FC<AiWorkHubProps> = ({ task, tasks = [], targetDate, onClose, onUpdateTask, aiPersona = 'polite', autoMemo = true, emails = [], isGoogleConnected = false }) => {
+  const [activeTab, setActiveTab] = useState<TabType>('workflow');
+  const [selectedTool, setSelectedTool] = useState<ToolType>(null);
+  const [aiResponse, setAiResponse] = useState<string>('');
+  const [isThinking, setIsThinking] = useState(false);
+
+  useEffect(() => {
+    setActiveTab('steps');
+    setSelectedTool(null);
+    setAiResponse('');
+  }, [task?.id]);
+
+  const handleToolClick = async (tool: ToolType) => {
+    if (!task) return;
+    setSelectedTool(tool);
+    setIsThinking(true);
+    setAiResponse('');
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const personaInstruction = PERSONA_PROMPTS[aiPersona] || PERSONA_PROMPTS.polite;
+      let prompt = '';
+
+      const isEmailTask = task.title.includes('メール') || task.title.includes('送信') || task.title.includes('チェック');
+      const isMeeting = task.title.includes('打ち合わせ') || task.title.includes('MTG');
+
+      if (tool === 'gmail') {
+        const dayTasks = tasks.filter(t => t.date === targetDate);
+        const timeGroupedList = dayTasks.length > 0 ? buildTimeGroupedTaskList(dayTasks) : '';
+
+        if (isEmailTask) {
+          prompt = `MCP Gmail連携機能: タスク「${task.title}」に関するメール対応を支援します。
+以下の業務報告フォーマットに基づいて返信メールのドラフトを作成してください。
+
+【現在のタスク情報】
+・タスク名: ${task.title}
+・顧客名: ${task.customerName || '未設定'}
+・プロジェクト: ${task.projectName || '未設定'}
+・詳細: ${task.details || 'なし'}
+・開始時間: ${task.startTime || '未設定'}
+
+【本日の全業務】
+${timeGroupedList || '（タスク情報なし）'}
+
+以下を提案してください：
+1. 関連する未読メールのチェック概要
+2. 返信が必要な場合のドラフト作成（丁寧なビジネス日本語）
+3. 送信内容の最終確認項目`;
+        } else if (isMeeting) {
+          prompt = `タスク「${task.title}」の打ち合わせ後の報告メールを以下のフォーマットで作成してください。
+
+橋本社長
+
+いつもありがとうございます。
+CSGの三神です。
+
+${task.title}の報告です。
+
+${timeGroupedList ? timeGroupedList : `■${task.startTime || '??:??'}–${getTimeSlot(task.startTime, task.timeSpent, task.estimatedTime).split('–')[1]}
+・${task.title}
+${task.details ? `（${task.details}）` : ''}`}
+
+**************************************************
+文唱堂印刷株式会社
+三神 杏友
+
+〒101-0025
+東京都千代田区神田佐久間町3-37
+Tel.03-3851-0111
+**************************************************
+
+---
+上記フォーマットをベースに、打ち合わせ内容の議事要約と次回アクションも追記してください。`;
+        } else {
+          const timeRange = task.startTime ? `${task.startTime}時台` : '本日';
+          prompt = `タスク「${task.title}」に関する業務報告メールを以下のフォーマットで作成してください。
+
+橋本社長
+
+いつもありがとうございます。
+CSGの三神です。
+
+${timeRange}の業務進捗をご報告いたします。
+
+${timeGroupedList ? timeGroupedList : `■${task.startTime || '??:??'}–${getTimeSlot(task.startTime, task.timeSpent, task.estimatedTime).split('–')[1]}
+・${task.title}
+${task.details ? `（${task.details}）` : ''}`}
+
+**************************************************
+文唱堂印刷株式会社
+三神 杏友
+
+〒101-0025
+東京都千代田区神田佐久間町3-37
+Tel.03-3851-0111
+**************************************************
+
+---
+上記フォーマットを忠実に守り、各タスクの詳細情報を活用して具体的な報告内容を生成してください。
+顧客名: ${task.customerName || '未設定'}
+プロジェクト名: ${task.projectName || '未設定'}`;
+        }
+      } else if (tool === 'sheets') {
+        prompt = `タスク「${task.title}」の管理・進捗状況を記録するためのスプレッドシート項目案を5つ提案してください。
+顧客: ${task.customerName || '未設定'}、プロジェクト: ${task.projectName || '未設定'}`;
+      } else if (tool === 'slack') {
+        prompt = `タスク「${task.title}」の現在のステータスをチームに周知するSlack用メッセージを3パターン作成してください。
+詳細: ${task.details || 'なし'}`;
+      } else if (tool === 'drive') {
+        prompt = `タスク「${task.title}」に関連する資料をGoogle Driveで整理するためのフォルダ構造を提案してください。
+プロジェクト: ${task.projectName || '未設定'}`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `${personaInstruction}\n\n${prompt}`,
+      });
+
+      setAiResponse(response.text || '応答を取得できませんでした。');
+    } catch (err) {
+      setAiResponse('エラーが発生しました。');
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  if (!task) return null;
+
+  return (
+    <div className="fixed right-0 top-0 bottom-0 w-[400px] bg-white border-l shadow-2xl z-20 flex flex-col animate-in slide-in-from-right duration-300">
+      {/* Header */}
+      <div className="p-4 border-b flex items-center justify-between bg-zinc-50/30">
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-zinc-800 rounded flex items-center justify-center text-white shadow-sm shadow-zinc-200">
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          </div>
+          <h3 className="font-bold text-zinc-800">AI業務支援ハブ</h3>
+        </div>
+        <button onClick={onClose} className="p-1 hover:bg-zinc-100 rounded-full text-zinc-300">
+           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex border-b bg-zinc-50/20">
+        <button
+          onClick={() => setActiveTab('steps')}
+          className={`flex-1 py-3 text-[11px] font-black tracking-wider transition-all relative ${
+            activeTab === 'steps' ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+          }`}
+        >
+          STEPS
+          {activeTab === 'steps' && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-zinc-800 rounded-full" />}
+        </button>
+        <button
+          onClick={() => setActiveTab('analysis')}
+          className={`flex-1 py-3 text-[11px] font-black tracking-wider transition-all relative ${
+            activeTab === 'analysis' ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+          }`}
+        >
+          ANALYSIS
+          {activeTab === 'analysis' && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-zinc-800 rounded-full" />}
+        </button>
+        <button
+          onClick={() => setActiveTab('tools')}
+          className={`flex-1 py-3 text-[11px] font-black tracking-wider transition-all relative ${
+            activeTab === 'tools' ? 'text-zinc-800' : 'text-zinc-400 hover:text-zinc-600'
+          }`}
+        >
+          AI TOOLS
+          {activeTab === 'tools' && <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-zinc-800 rounded-full" />}
+        </button>
+      </div>
+
+      {/* Task info + auto-detected shortcuts */}
+      <div className="px-6 pt-5 pb-3">
+        <label className="text-[10px] font-bold text-zinc-300 tracking-widest block mb-1">選択中のタスク</label>
+        <h4 className="text-lg font-bold text-zinc-800 leading-tight">{task.title}</h4>
+        <div className="mt-1 text-[11px] text-zinc-400 font-bold">{task.customerName} / {task.projectName}</div>
+        {task.details && (
+          <div className="mt-2 text-[11px] text-zinc-500 bg-zinc-50 rounded-lg p-2 font-medium line-clamp-3">{task.details}</div>
+        )}
+      </div>
+
+      {/* Tab content */}
+      <div className="px-6 pb-6 flex-1 overflow-y-auto custom-scrollbar">
+        {activeTab === 'steps' ? (
+          <StructuredSteps task={task} onUpdateTask={onUpdateTask} />
+        ) : activeTab === 'analysis' ? (
+          <EvidenceAnalysis task={task} tasks={tasks} emails={emails} isGoogleConnected={isGoogleConnected} onUpdateTask={onUpdateTask} aiPersona={aiPersona} />
+        ) : (
+          <>
+            {/* タスク連動ツール — レジストリから自動マッチ */}
+            {(() => {
+              const matched = matchToolsForTask(task);
+              if (!matched.length) return null;
+              return (
+                <div className="mb-8">
+                  <label className="text-[10px] font-bold text-blue-500 tracking-widest mb-3 block">タスク連動ツール</label>
+                  <div className="space-y-2">
+                    {matched.map((tool: ToolDefinition) => (
+                      <MatchedToolCard key={tool.id} tool={tool} task={task} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="mb-8">
+              <label className="text-[10px] font-bold text-zinc-300 tracking-widest mb-4 block">連携ツールを選択</label>
+              {(() => {
+                const detectedToolIds = new Set(
+                  extractActionShortcuts(task.title, task.details).map(s => s.toolId).filter(Boolean)
+                );
+                const tools = [
+                  { id: 'gmail', name: 'Gmail', color: 'bg-zinc-50 text-zinc-800', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+                  { id: 'sheets', name: 'スプレッドシート', color: 'bg-zinc-100 text-zinc-700', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+                  { id: 'slack', name: 'Slack', color: 'bg-zinc-100 text-zinc-700', icon: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z' },
+                  { id: 'drive', name: 'ドライブ', color: 'bg-zinc-100 text-zinc-700', icon: 'M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9l-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' }
+                ];
+                return (
+                  <div className="grid grid-cols-4 gap-3">
+                    {tools.map(tool => {
+                      const isDetected = detectedToolIds.has(tool.id);
+                      return (
+                        <button
+                          key={tool.id}
+                          onClick={() => handleToolClick(tool.id as ToolType)}
+                          className={`flex flex-col items-center p-3 rounded-xl border-2 transition-all ${
+                            selectedTool === tool.id
+                              ? 'border-zinc-800 bg-zinc-800 text-white shadow-lg'
+                              : isDetected
+                                ? 'border-blue-400 bg-blue-50 shadow-md ring-2 ring-blue-200 animate-pulse'
+                                : 'border-zinc-100 hover:border-zinc-300 hover:shadow-sm'
+                          }`}
+                        >
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-2 ${
+                            selectedTool === tool.id
+                              ? 'bg-white text-zinc-800'
+                              : isDetected
+                                ? 'bg-blue-500 text-white'
+                                : tool.color
+                          }`}>
+                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={tool.icon} /></svg>
+                          </div>
+                          <span className={`text-[10px] font-bold leading-tight ${
+                            selectedTool === tool.id ? 'text-white' : isDetected ? 'text-blue-700 font-black' : 'text-zinc-600'
+                          }`}>{tool.name}</span>
+                          {isDetected && selectedTool !== tool.id && (
+                            <span className="text-[8px] font-black text-blue-500 mt-0.5">検出</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="relative">
+              {selectedTool ? (
+                <div className="bg-zinc-50/10 rounded-2xl p-5 border border-zinc-50 min-h-[350px] animate-in fade-in duration-500">
+                   {isThinking ? (
+                     <div className="space-y-4 animate-pulse">
+                        <div className="h-4 bg-zinc-100 rounded w-3/4"></div>
+                        <div className="h-4 bg-zinc-100 rounded w-full"></div>
+                        <div className="h-4 bg-zinc-100 rounded w-5/6"></div>
+                     </div>
+                   ) : (
+                     <div className="prose prose-sm text-zinc-700 whitespace-pre-wrap leading-relaxed font-medium">
+                       {aiResponse}
+                     </div>
+                   )}
+
+                   {!isThinking && aiResponse && (
+                     <button
+                       onClick={() => {
+                         navigator.clipboard.writeText(aiResponse);
+                         alert('内容をコピーしました。');
+                       }}
+                       className="w-full mt-6 bg-zinc-800 text-white py-3 rounded-xl font-bold text-sm shadow-md shadow-zinc-100"
+                     >
+                       内容をコピーして実務に活用
+                     </button>
+                   )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-center px-6 border-2 border-dashed border-zinc-50 rounded-3xl opacity-60">
+                   <svg className="w-12 h-12 text-zinc-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                   <h5 className="text-zinc-800 font-bold mb-1">AI連携・支援機能</h5>
+                   <p className="text-[11px] text-zinc-400">
+                     メールチェック、返信ドラフト、資料整理などの実務支援を行います。ツールを選択してください。
+                   </p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AiWorkHub;

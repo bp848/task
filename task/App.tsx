@@ -1,0 +1,555 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Session } from '@supabase/supabase-js';
+import Sidebar from './components/Sidebar';
+import TodayView from './components/views/TodayView';
+import PlannerView from './components/views/PlannerView';
+import ScheduleView from './components/views/ScheduleView';
+import MetricsView from './components/views/MetricsView';
+import HabitsView from './components/views/HabitsView';
+import SettingsView from './components/views/SettingsView';
+import InboxView from './components/views/InboxView';
+import ProjectDetailView from './components/views/ProjectDetailView';
+import TaskCategoryView from './components/views/TaskCategoryView';
+import CustomerView from './components/views/CustomerView';
+import ToolsView from './components/views/ToolsView';
+import TaskSettingsView from './components/views/TaskSettingsView';
+import WorkflowsView from './components/views/WorkflowsView';
+import AiWorkHub from './components/AiWorkHub';
+import { ViewType, Task, Project, Email } from './types';
+import { initialProjects } from './constants';
+import { supabase, gws } from './lib/gws';
+import { useZenworkTasks } from './hooks/useZenworkTasks';
+import { useEmails } from './hooks/useEmails';
+import { GoogleLoginButton, useGoogleAuthCallback } from 'gws-supabase-kit';
+
+const viewTitleMap: Record<ViewType, string> = {
+  'today': '本日の業務',
+  'inbox': '受信トレイ',
+  'planner': '週次計画',
+  'schedule': 'カレンダー',
+  'metrics': '業務分析',
+  'habits': 'ルーティン管理',
+  'settings': '設定',
+  'project-detail': 'プロジェクト詳細',
+  'task-view': '作業ベース',
+  'customer-view': '顧客ベース',
+  'tools': 'ツール',
+  'task-settings': 'タスク設定',
+  'workflows': 'ワークフロー',
+};
+
+const GOOGLE_SCOPES = [
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/calendar.readonly',
+].join(' ');
+
+const App: React.FC = () => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<ViewType>('today');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
+  const [projects] = useState<Project[]>(initialProjects);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+  const [appSettings, setAppSettings] = useState<{
+    psychedelic_mode?: boolean; ai_persona?: string; auto_memo?: boolean;
+    email_recipient?: string; email_sender_name?: string; email_sender_company?: string; email_signature?: string;
+  }>({});
+  const [clockTime, setClockTime] = useState(new Date());
+  const [customerSuggestions, setCustomerSuggestions] = useState<string[]>([]);
+  const [plannerWeekOffset, setPlannerWeekOffset] = useState(0);
+  const [plannerBulkMode, setPlannerBulkMode] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  // Supabase-backed hooks
+  const {
+    tasks, addTask, updateTask, toggleTask, deleteTask, syncTimeSpent, mergeCalendarTasks,
+  } = useZenworkTasks(session);
+  const {
+    emails, fetchFromGmail, markAsRead, setEmails, clearEmails,
+  } = useEmails(session);
+
+  const user = session ? {
+    name: session.user.user_metadata?.full_name || session.user.email || 'ユーザー',
+    role: session.user.user_metadata?.role || '',
+    avatar: session.user.user_metadata?.avatar_url || '',
+  } : { name: '', role: '', avatar: '' };
+
+  const selectedTask = tasks.find(t => t.id === selectedTaskId) || null;
+
+  // Helpers
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setIsGoogleConnected(false);
+    clearEmails();
+  };
+
+  const fetchCalendarEvents = async () => {
+    try {
+      const startOfDay = new Date(targetDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(targetDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const events = await gws.calendar.listEvents({
+        timeMin: startOfDay.toISOString(),
+        timeMax: endOfDay.toISOString(),
+        maxResults: 50,
+        singleEvents: true,
+        orderBy: 'startTime',
+      });
+
+      if (events.length > 0) {
+        const mappedEvents: Task[] = events.map((event) => {
+          const startRaw = event.start?.dateTime || event.start?.date;
+          const endRaw = event.end?.dateTime || event.end?.date;
+          const startD = startRaw ? new Date(startRaw) : null;
+          const endD = endRaw ? new Date(endRaw) : null;
+          const durationSec = startD && endD ? Math.max(Math.floor((endD.getTime() - startD.getTime()) / 1000), 0) : 3600;
+          const startTimeStr = startD && !isNaN(startD.getTime())
+            ? startD.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+            : undefined;
+          const endTimeStr = endD && !isNaN(endD.getTime())
+            ? endD.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+            : undefined;
+
+          return {
+            id: event.id || crypto.randomUUID(),
+            title: event.summary || '(無題)',
+            completed: false,
+            timeSpent: 0,
+            estimatedTime: durationSec,
+            startTime: startTimeStr,
+            endTime: endTimeStr,
+            tags: ['Google Calendar'],
+            projectId: 'calendar',
+            date: targetDate,
+            createdAt: new Date().toISOString(),
+          };
+        });
+        mergeCalendarTasks(mappedEvents);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch Google Calendar:', err);
+      const msg = String(err?.message || '');
+      if (msg.includes('token') || msg.includes('auth') || msg.includes('401') || msg.includes('NO_REFRESH_TOKEN')) {
+        setGoogleError('設定画面で「Googleと連携」を実行してください');
+      }
+    }
+  };
+
+  const fetchGoogleData = async (currentSession?: Session) => {
+    const s = currentSession || session;
+    if (!s) return;
+    setGoogleError(null);
+    try {
+      await gws.token.getAccessToken();
+      const result = await fetchFromGmail();
+      if (result === 'success') {
+        setIsGoogleConnected(true);
+        await fetchCalendarEvents();
+      } else {
+        setIsGoogleConnected(false);
+        setGoogleError('Google接続に問題が発生しました');
+      }
+    } catch (err: any) {
+      setIsGoogleConnected(false);
+      setGoogleError('Google連携が必要です');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        scopes: GOOGLE_SCOPES,
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) console.error('Google login error:', error);
+  };
+
+  // Google OAuth Callback Hook
+  const { handleCode, isLoading: isExchanging } = useGoogleAuthCallback({
+    supabase,
+    exchangeCodeUrl: gws.exchangeCodeUrl,
+    redirectUri: window.location.origin,
+    onSuccess: () => {
+      setIsGoogleConnected(true);
+      fetchGoogleData();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    },
+    onError: (err) => {
+      setGoogleError(err);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  });
+
+  // Main Effects
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeout);
+      setSession(session);
+      if (session) {
+        // Load settings
+        supabase.from('zenwork_settings').select('*').eq('user_id', session.user.id).single()
+          .then(({ data }) => { if (data) setAppSettings(data); });
+        // Fetch initially
+        fetchGoogleData(session);
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      if (event === 'SIGNED_IN' && session) {
+        fetchGoogleData(session);
+      } else if (event === 'SIGNED_OUT') {
+        setIsGoogleConnected(false);
+        clearEmails();
+      }
+    });
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (code && session) {
+      handleCode(code);
+    }
+  }, [session, handleCode]);
+
+  useEffect(() => {
+    if (session && isGoogleConnected) {
+      fetchCalendarEvents();
+    }
+  }, [targetDate, isGoogleConnected, session]);
+
+  // Real-time clock
+  useEffect(() => {
+    const id = window.setInterval(() => setClockTime(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Timer: Date.now()ベースで正確に計測
+  const timerStartRef = useRef<number>(0);
+  const baseTimeRef = useRef<number>(0);
+  const syncTimeSpentFnRef = useRef(syncTimeSpent);
+  syncTimeSpentFnRef.current = syncTimeSpent;
+
+  useEffect(() => {
+    let interval: number;
+    if (activeTaskId) {
+      const task = tasks.find(t => t.id === activeTaskId);
+      baseTimeRef.current = task ? task.timeSpent : 0;
+      timerStartRef.current = Date.now();
+      const capturedTaskId = activeTaskId;
+
+      interval = window.setInterval(() => {
+        const elapsed = Math.floor((Date.now() - timerStartRef.current) / 1000);
+        const total = baseTimeRef.current + elapsed;
+        syncTimeSpentFnRef.current(capturedTaskId, total);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [activeTaskId]);
+
+  const handleViewChange = (view: ViewType, projectId?: string) => {
+    setCurrentView(view);
+    setSelectedProjectId(projectId);
+    setSelectedTaskId(null);
+  };
+
+  const handleAddTask = (
+    title: string,
+    projectId: string = 'p1',
+    tags: string[] = [],
+    estimatedTime: number = 3600,
+    date: string = targetDate,
+    explicitStartTime?: string,
+    isRoutine: boolean = false,
+    customerName?: string,
+    projectName?: string,
+    details?: string
+  ) => {
+    addTask(title, projectId, tags, estimatedTime, date, explicitStartTime, isRoutine, customerName, projectName, details);
+  };
+
+  const convertEmailToTask = (email: Email, date: string, startTime: string, estimatedTime: number) => {
+    addTask(email.subject, 'p3', ['Gmail'], estimatedTime, date, startTime || undefined, false, email.customerName, email.projectName);
+    markAsRead(email.id);
+  };
+
+  const handleToggleTask = (id: string) => {
+    toggleTask(id);
+    if (activeTaskId === id) setActiveTaskId(null);
+  };
+
+  const toggleTimer = (id: string) => {
+    const now = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    if (activeTaskId === id) {
+      updateTask(id, { timerStoppedAt: now });
+      setActiveTaskId(null);
+    } else {
+      updateTask(id, { timerStartedAt: now });
+      setActiveTaskId(id);
+      setSelectedTaskId(id);
+    }
+  };
+
+  const renderView = () => {
+    switch (currentView) {
+      case 'today':
+        return (
+          <TodayView
+            tasks={tasks}
+            projects={projects}
+            onAddTask={handleAddTask}
+            onToggleTask={handleToggleTask}
+            onUpdateTask={(id, updates) => updateTask(id, updates)}
+            selectedTaskId={selectedTaskId}
+            onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)}
+            activeTaskId={activeTaskId}
+            onToggleTimer={toggleTimer}
+            targetDate={targetDate}
+            setTargetDate={setTargetDate}
+            customerSuggestions={customerSuggestions}
+            emailFormat={{
+              recipient: appSettings.email_recipient,
+              senderName: appSettings.email_sender_name,
+              senderCompany: appSettings.email_sender_company,
+              signature: appSettings.email_signature,
+            }}
+          />
+        );
+      case 'inbox':
+        return <InboxView tasks={tasks} emails={emails} onConvertToTask={convertEmailToTask} />;
+      case 'planner':
+        return <PlannerView
+          tasks={tasks}
+          onAddTask={handleAddTask}
+          onUpdateTask={updateTask}
+          onToggleTask={handleToggleTask}
+          onDeleteTask={deleteTask}
+          onNavigateToDay={(date) => { setTargetDate(date); setCurrentView('today'); }}
+          weekOffset={plannerWeekOffset}
+          setWeekOffset={setPlannerWeekOffset}
+          isBulkMode={plannerBulkMode}
+          setIsBulkMode={setPlannerBulkMode}
+        />;
+      case 'schedule':
+        return <ScheduleView tasks={tasks} targetDate={targetDate} setTargetDate={setTargetDate} />;
+      case 'project-detail':
+        const project = projects.find(p => p.id === selectedProjectId);
+        return project ? <ProjectDetailView project={project} tasks={tasks} onToggleTask={handleToggleTask} /> : null;
+      case 'task-view':
+        return <TaskCategoryView tasks={tasks} targetDate={targetDate} onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)} onToggleTask={handleToggleTask} />;
+      case 'customer-view':
+        return <CustomerView tasks={tasks} targetDate={targetDate} onSelectTask={(id) => setSelectedTaskId(id === selectedTaskId ? null : id)} onToggleTask={handleToggleTask} />;
+      case 'metrics':
+        return <MetricsView tasks={tasks} />;
+      case 'habits':
+        return <HabitsView session={session} onAddTaskToPlanner={(title: string, date: string, startTime?: string, estimatedMinutes?: number, customerName?: string, projectName?: string) => {
+          handleAddTask(title, 'p1', [], (estimatedMinutes || 30) * 60, date, startTime, true, customerName, projectName);
+        }} />;
+      case 'settings':
+        return <SettingsView
+          session={session}
+          onSettingsChange={(s) => setAppSettings({
+            psychedelic_mode: s.psychedelic_mode, ai_persona: s.ai_persona, auto_memo: s.auto_memo,
+            email_recipient: s.email_recipient, email_sender_name: s.email_sender_name,
+            email_sender_company: s.email_sender_company, email_signature: s.email_signature,
+          })}
+          onGoogleConnected={() => fetchGoogleData(session || undefined)}
+        />;
+      case 'tools':
+        return <ToolsView />;
+      case 'task-settings':
+        return <TaskSettingsView />;
+      case 'workflows':
+        return <WorkflowsView />;
+      default:
+        return null;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="text-gray-400 text-sm font-medium">読み込み中...</div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="bg-white rounded-2xl shadow-lg p-12 max-w-md w-full mx-4 text-center border border-gray-200">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">ZenWork Mini</h1>
+          <p className="text-sm text-gray-400 mb-10">タスク管理 + Google Workspace 連携</p>
+          <button
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center space-x-3 text-white px-6 py-4 rounded-xl shadow-sm hover:opacity-90 transition-all text-sm font-semibold"
+            style={{ backgroundColor: '#0D9488' }}
+          >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
+            </svg>
+            <span>Googleでログイン</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex h-screen bg-white text-gray-800 font-sans ${appSettings.psychedelic_mode ? 'psychedelic-mode' : ''}`}>
+      {appSettings.psychedelic_mode && (
+        <style>{`
+          @keyframes psyche-hue { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+          @keyframes psyche-bg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+          .psychedelic-mode { animation: psyche-hue 8s linear infinite; }
+          .psychedelic-mode main { background: linear-gradient(270deg, #ff6ec7, #7873f5, #4ade80, #facc15, #f87171, #a78bfa); background-size: 600% 600%; animation: psyche-bg 6s ease infinite; }
+          .psychedelic-mode header { backdrop-filter: blur(8px) saturate(200%); background: rgba(255,255,255,0.5) !important; }
+        `}</style>
+      )}
+      <Sidebar
+        currentView={currentView}
+        selectedProjectId={selectedProjectId}
+        onViewChange={handleViewChange}
+        isOpen={isSidebarOpen}
+        toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        user={user}
+        onLogout={handleLogout}
+      />
+      <main className="flex-1 flex flex-col overflow-hidden relative">
+        <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 md:px-8 shrink-0 z-10">
+          <div className="flex items-center gap-3 md:gap-6 min-w-0">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-all shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <h1 className="text-base md:text-lg font-bold text-gray-800 truncate">
+              {currentView === 'project-detail' ? projects.find(p => p.id === selectedProjectId)?.name : viewTitleMap[currentView]}
+            </h1>
+            {currentView === 'planner' ? (
+              <div className="hidden sm:flex items-center space-x-2">
+                <button onClick={() => setPlannerWeekOffset(w => w - 1)} className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all text-gray-500 cursor-pointer">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button onClick={() => setPlannerWeekOffset(() => 0)} className="px-4 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-50 transition-all cursor-pointer">今週</button>
+                <button onClick={() => setPlannerWeekOffset(w => w + 1)} className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-all text-gray-500 cursor-pointer">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+                <button
+                  onClick={() => setPlannerBulkMode(v => !v)}
+                  className={`ml-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${plannerBulkMode ? 'text-white border-teal-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                  style={plannerBulkMode ? { backgroundColor: '#0D9488' } : {}}
+                >
+                  {plannerBulkMode ? '閉じる' : '一括追加'}
+                </button>
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center">
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  className="bg-gray-50 px-4 py-2 rounded-lg text-gray-700 font-medium outline-none cursor-pointer hover:bg-gray-100 transition-all border border-gray-200 text-sm"
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3 md:gap-4 shrink-0">
+            {googleError || !isGoogleConnected ? (
+              <GoogleLoginButton
+                supabase={supabase}
+                config={{
+                  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+                  redirectUri: window.location.origin,
+                  scopes: [
+                    'https://www.googleapis.com/auth/gmail.readonly',
+                    'https://www.googleapis.com/auth/gmail.send',
+                    'https://www.googleapis.com/auth/calendar.readonly',
+                    'https://www.googleapis.com/auth/drive.readonly',
+                  ],
+                  usePKCE: true
+                }}
+                exchangeCodeUrl={gws.exchangeCodeUrl}
+                variant="default"
+                label="Googleと連携"
+                connectedLabel="Google 接続済み"
+                defaultConnected={isGoogleConnected}
+                onSuccess={() => {
+                  setIsGoogleConnected(true);
+                  fetchGoogleData();
+                }}
+                onError={(err) => setGoogleError(err)}
+                style={{
+                  backgroundColor: isGoogleConnected ? '#F0FDFA' : '#0D9488',
+                  color: isGoogleConnected ? '#0D9488' : '#fff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                }}
+              />
+            ) : (
+              <div className="hidden md:flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg" style={{ color: '#0D9488', backgroundColor: '#F0FDFA' }}>
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0D9488' }}></div>
+                <span>Google 接続済み</span>
+              </div>
+            )}
+            {activeTaskId && (
+              <div className="flex items-center gap-2 text-white px-4 py-2 rounded-lg" style={{ backgroundColor: '#0D9488' }}>
+                <div className="w-2 h-2 bg-white rounded-full animate-ping shrink-0"></div>
+                <span className="text-xs font-semibold hidden sm:inline">計測中...</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 md:gap-3">
+              <div className="hidden md:block text-sm text-gray-400">
+                {clockTime.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })}
+              </div>
+              <div className="text-base md:text-lg font-mono font-semibold text-gray-700 tabular-nums">
+                {clockTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </div>
+            </div>
+          </div>
+        </header>
+        <div className="flex-1 overflow-auto custom-scrollbar flex">
+          <div className="flex-1">
+            {renderView()}
+          </div>
+          <AiWorkHub
+            task={selectedTask}
+            tasks={tasks}
+            targetDate={targetDate}
+            onClose={() => setSelectedTaskId(null)}
+            onUpdateTask={updateTask}
+            aiPersona={appSettings.ai_persona || 'polite'}
+            autoMemo={appSettings.auto_memo !== false}
+            emails={emails}
+            isGoogleConnected={isGoogleConnected}
+          />
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default App;
