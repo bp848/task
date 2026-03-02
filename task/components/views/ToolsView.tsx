@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowLeft, X, Maximize2 } from 'lucide-react';
+import { ArrowLeft, X, Maximize2, Plus, Upload, Trash2 } from 'lucide-react';
 import { Task } from '../../types';
 import MeetingNotesAI from '../tools/MeetingNotesAI';
+import { compileJSX, loadCustomTools, saveCustomTool, deleteCustomTool, type CustomToolMeta } from '../../lib/jsxRuntime';
 
 /* ────────────────────────────────────────────
    Tool Registry Types
@@ -329,19 +330,205 @@ interface ToolsViewProps {
   task?: Task | null;
 }
 
+/* ────────────────────────────────────────────
+   JSX アップロード / ペースト ダイアログ
+   ──────────────────────────────────────────── */
+const JsxUploadDialog: React.FC<{
+  onRegister: (tool: CustomToolMeta) => void;
+  onClose: () => void;
+}> = ({ onRegister, onClose }) => {
+  const [jsxCode, setJsxCode] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState('🧩');
+  const [tagsInput, setTagsInput] = useState('');
+  const [category, setCategory] = useState<CustomToolMeta['category']>('utility');
+  const [preview, setPreview] = useState(false);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      setJsxCode(content);
+      if (!name) setName(file.name.replace(/\.(jsx|tsx)$/, ''));
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRegister = () => {
+    if (!jsxCode.trim()) { setError('JSXコードを入力してください'); return; }
+    if (!name.trim()) { setError('アプリ名を入力してください'); return; }
+    setError('');
+
+    // コンパイルテスト
+    try {
+      compileJSX(jsxCode);
+    } catch (err) {
+      setError(`コンパイルエラー: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
+
+    const tool: CustomToolMeta = {
+      id: `custom-${Date.now()}`,
+      name: name.trim(),
+      description: description.trim() || `${name}カスタムツール`,
+      icon,
+      tags: tagsInput.split(/[,、\s]+/).filter(Boolean),
+      category,
+      jsxSource: jsxCode,
+      createdAt: Date.now(),
+    };
+
+    saveCustomTool(tool);
+    onRegister(tool);
+    onClose();
+  };
+
+  // プレビューコンポーネント
+  const PreviewComponent = useMemo(() => {
+    if (!preview || !jsxCode.trim()) return null;
+    try {
+      return compileJSX(jsxCode);
+    } catch {
+      return null;
+    }
+  }, [preview, jsxCode]);
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h3 className="text-base font-bold text-gray-800">JSXツール登録</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          {/* JSX入力エリア */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-gray-600">JSXコード</label>
+              <div className="flex gap-2">
+                <button onClick={() => setPreview(!preview)}
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all ${preview ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+                  {preview ? 'プレビュー中' : 'プレビュー'}
+                </button>
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-md bg-gray-100 text-gray-500 hover:bg-gray-200">
+                  <Upload size={11} /> ファイル
+                </button>
+                <input ref={fileInputRef} type="file" accept=".jsx,.tsx,.js,.ts" onChange={handleFileUpload} className="hidden" />
+              </div>
+            </div>
+            <textarea
+              value={jsxCode}
+              onChange={e => setJsxCode(e.target.value)}
+              placeholder="JSX / TSX コードをペーストまたはファイルをアップロード..."
+              className="w-full h-48 bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-mono text-gray-700 outline-none resize-y focus:border-indigo-300 transition-all"
+            />
+          </div>
+
+          {/* プレビュー */}
+          {preview && PreviewComponent && (
+            <div className="border-2 border-indigo-200 rounded-xl p-4 bg-indigo-50/30">
+              <div className="text-[10px] font-bold text-indigo-500 mb-2">PREVIEW</div>
+              <div className="bg-white rounded-lg p-3 border border-indigo-100 max-h-60 overflow-auto">
+                <PreviewComponent />
+              </div>
+            </div>
+          )}
+
+          {/* メタデータ */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1 block">アプリ名 *</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Meeting Notes AI"
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1 block">アイコン</label>
+              <input value={icon} onChange={e => setIcon(e.target.value)} placeholder="🧩"
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-gray-600 mb-1 block">説明</label>
+            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="何に使うツールか..."
+              className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1 block">タグ（カンマ区切り）</label>
+              <input value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="会議, MTG, 議事録"
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1 block">カテゴリ</label>
+              <select value={category} onChange={e => setCategory(e.target.value as CustomToolMeta['category'])}
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300">
+                <option value="productivity">生産性</option>
+                <option value="utility">ユーティリティ</option>
+                <option value="developer">開発ツール</option>
+                <option value="communication">コミュニケーション</option>
+              </select>
+            </div>
+          </div>
+
+          {error && <p className="text-xs text-red-500 font-semibold">{error}</p>}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-5 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700">キャンセル</button>
+          <button onClick={handleRegister}
+            className="px-5 py-2 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-xl transition-colors">
+            登録する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ToolsView: React.FC<ToolsViewProps> = ({ task }) => {
   const [openToolId, setOpenToolId] = useState<string | null>(null);
   const [fullPageToolId, setFullPageToolId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [customTools, setCustomTools] = useState<CustomToolMeta[]>([]);
+
+  // localStorage からカスタムツール読み込み
+  useEffect(() => {
+    setCustomTools(loadCustomTools());
+  }, []);
+
+  // ビルトイン + カスタムツールを統合したレジストリ
+  const allTools = useMemo(() => {
+    const customDefs: ToolDefinition[] = customTools.map(ct => ({
+      id: ct.id,
+      name: ct.name,
+      description: ct.description,
+      icon: ct.icon,
+      component: compileJSX(ct.jsxSource) as React.FC<ToolProps>,
+      tags: ct.tags,
+      category: ct.category,
+      size: 'fullPage' as const,
+    }));
+    return [...TOOL_REGISTRY, ...customDefs];
+  }, [customTools]);
 
   const matchedToolIds = useMemo(() => {
     if (!task) return new Set<string>();
-    return new Set(matchToolsForTask(task).map(t => t.id));
-  }, [task]);
+    return new Set(matchToolsForTask(task, allTools).map(t => t.id));
+  }, [task, allTools]);
 
   const filteredTools = useMemo(() => {
-    let tools = TOOL_REGISTRY;
+    let tools = allTools;
     if (filter !== 'all') tools = tools.filter(t => t.category === filter);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -352,15 +539,28 @@ const ToolsView: React.FC<ToolsViewProps> = ({ task }) => {
       );
     }
     return tools;
-  }, [filter, search]);
+  }, [filter, search, allTools]);
 
   const categories = useMemo(() => {
-    const cats = new Set(TOOL_REGISTRY.map(t => t.category));
+    const cats = new Set(allTools.map(t => t.category));
     return ['all', ...Array.from(cats)];
-  }, []);
+  }, [allTools]);
 
   const openTool = filteredTools.find(t => t.id === openToolId);
-  const fullPageTool = TOOL_REGISTRY.find(t => t.id === fullPageToolId);
+  const fullPageTool = allTools.find(t => t.id === fullPageToolId);
+
+  const handleCustomToolRegister = (tool: CustomToolMeta) => {
+    setCustomTools(loadCustomTools());
+    setFullPageToolId(tool.id);
+  };
+
+  const handleDeleteCustomTool = (id: string) => {
+    if (!confirm('このカスタムツールを削除しますか？')) return;
+    deleteCustomTool(id);
+    setCustomTools(loadCustomTools());
+    if (fullPageToolId === id) setFullPageToolId(null);
+    if (openToolId === id) setOpenToolId(null);
+  };
 
   const handleToolClick = (tool: ToolDefinition) => {
     if (tool.size === 'fullPage') {
@@ -405,7 +605,16 @@ const ToolsView: React.FC<ToolsViewProps> = ({ task }) => {
               業務で使えるアプリ集 — タスクに応じて自動で提案されます
             </p>
           </div>
+          <button onClick={() => setShowUploadDialog(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-500 hover:bg-indigo-600 transition-colors">
+            <Plus size={14} /> JSX登録
+          </button>
         </div>
+
+        {/* JSX Upload Dialog */}
+        {showUploadDialog && (
+          <JsxUploadDialog onRegister={handleCustomToolRegister} onClose={() => setShowUploadDialog(false)} />
+        )}
 
         {/* Search + Category Filter */}
         <div className="mb-5 space-y-3">
