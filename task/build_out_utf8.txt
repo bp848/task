@@ -1,0 +1,107 @@
+﻿
+> zenwork-mini@0.0.0 build
+> vite build
+
+[36mvite v6.4.1 [32mbuilding for production...[36m[39m
+transforming...
+node.exe : Found 1 warning whi
+le optimizing generated CSS:
+発生場所 行:1 文字:1
++ & "C:\Program Files\nodejs/n
+ode.exe" "C:\Program Files\nod
+ejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo          : 
+    NotSpecified: (Found 1 w  
+  arning... generated CSS::   
+ String) [], RemoteExcepti    
+on
+    + FullyQualifiedErrorId : 
+    NativeCommandError
+ 
+
+[2m笏・  }[22m
+[2m笏・}[22m
+[2m笏・[22m @import url("https:
+//fonts.googleapis.com/css2?fa
+mily=Inter:wght@400;500;600;70
+0&display=swap");
+[2m笏・[22m        [33m[2m^--
+[22m @import rules must prece
+de all rules aside from @chars
+et and @layer statements[39m
+[2m笏・[22m
+[2m笏・@layer base {[22m
+[2m笏・  *, *::before, *::after
+ {[22m
+
+[32m笨・[39m 19 modules transformed.
+[31m笨・[39m Build failed in 3.
+48s
+[31merror during build:
+[31m[vite:esbuild] Transform 
+failed with 1 error:
+C:/Users/ishij/OneDrive/Docume
+nts/GitHub/task/task/lib/gws.t
+s:345:9: ERROR: Expected ">" b
+ut found "width"[31m
+file: [36mC:/Users/ishij/OneD
+rive/Documents/GitHub/task/tas
+k/lib/gws.ts:345:9[31m
+[33m
+[33mExpected ">" but found "w
+idth"[33m
+343|  function GoogleIcon() {
+344|    return (
+345|      <svg width="20" heig
+ht="20" viewBox="0 0 24 24" ar
+ia-hidden="true">
+   |           ^
+346|        <path d="M22.56 12
+.25c0-.78-.07-1.53-.2-2.25H12v
+4.26h5.92c-.26 1.37-1.04 2.53-
+2.21 3.31v2.77h3.57c2.08-1.92 
+3.28-4.74 3.28-8.09z" fill="#4
+285F4" />
+347|        <path d="M12 23c2.
+97 0 5.46-.98 7.28-2.66l-3.57-
+2.77c-.98.66-2.23 1.06-3.71 1.
+06-2.86 0-5.29-1.93-6.16-4.53H
+2.18v2.84C3.99 20.53 7.7 23 12
+ 23z" fill="#34A853" />
+[31m
+    at failureErrorWithLog (C:
+\Users\ishij\OneDrive\Document
+s\GitHub\task\task\node_module
+s\esbuild\lib\main.js:1467:15)
+    at C:\Users\ishij\OneDrive
+\Documents\GitHub\task\task\no
+de_modules\esbuild\lib\main.js
+:736:50
+    at responseCallbacks.<comp
+uted> (C:\Users\ishij\OneDrive
+\Documents\GitHub\task\task\no
+de_modules\esbuild\lib\main.js
+:603:9)
+    at handleIncomingPacket (C
+:\Users\ishij\OneDrive\Documen
+ts\GitHub\task\task\node_modul
+es\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout (
+C:\Users\ishij\OneDrive\Docume
+nts\GitHub\task\task\node_modu
+les\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:event
+s:508:28)
+    at addChunk (node:internal
+/streams/readable:559:12)
+    at readableAddChunkPushByt
+eMode (node:internal/streams/r
+eadable:510:3)
+    at Readable.push (node:int
+ernal/streams/readable:390:5)
+    at Pipe.onStreamRead (node
+:internal/stream_base_commons:
+189:23)[39m

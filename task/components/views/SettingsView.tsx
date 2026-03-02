@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase, gws } from '../../lib/gws';
-import { GoogleLoginButton, useGoogleAuthCallback } from 'gws-supabase-kit';
+import { supabase, gws, GoogleLoginButton, useGoogleAuthCallback } from '../../lib/gws.tsx';
 
 interface SettingsViewProps {
   session: Session | null;
@@ -52,9 +51,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange, 
   const userId = session?.user?.id;
 
   const { handleCode, isLoading: isExchanging } = useGoogleAuthCallback({
-    supabase,
-    exchangeCodeUrl: gws.exchangeCodeUrl,
-    redirectUri: window.location.origin + '/settings',
     onSuccess: () => {
       setIsConnected(true);
       onGoogleConnected?.();
@@ -181,23 +177,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ session, onSettingsChange, 
                       </p>
                     </div>
                     <GoogleLoginButton
-                      supabase={supabase}
-                      config={{
-                        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-                        redirectUri: window.location.origin + '/settings',
-                        scopes: [
-                          'https://www.googleapis.com/auth/gmail.readonly',
-                          'https://www.googleapis.com/auth/gmail.send',
-                          'https://www.googleapis.com/auth/calendar.readonly',
-                          'https://www.googleapis.com/auth/drive.readonly',
-                        ],
-                        usePKCE: true
-                      }}
-                      exchangeCodeUrl={gws.exchangeCodeUrl}
                       variant="minimal"
                       label="Googleと連携"
                       connectedLabel="連携済み"
                       defaultConnected={isConnected}
+                      scopes={[
+                        'https://www.googleapis.com/auth/gmail.readonly',
+                        'https://www.googleapis.com/auth/gmail.send',
+                        'https://www.googleapis.com/auth/calendar',
+                        'https://www.googleapis.com/auth/drive.readonly',
+                      ]}
                       onSuccess={() => {
                         setIsConnected(true);
                         onGoogleConnected?.();

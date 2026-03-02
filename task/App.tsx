@@ -17,10 +17,9 @@ import WorkflowsView from './components/views/WorkflowsView';
 import AiWorkHub from './components/AiWorkHub';
 import { ViewType, Task, Project, Email } from './types';
 import { initialProjects } from './constants';
-import { supabase, gws } from './lib/gws';
+import { supabase, gws, GoogleLoginButton, useGoogleAuthCallback } from './lib/gws.tsx';
 import { useZenworkTasks } from './hooks/useZenworkTasks';
 import { useEmails } from './hooks/useEmails';
-import { GoogleLoginButton, useGoogleAuthCallback } from 'gws-supabase-kit';
 
 const viewTitleMap: Record<ViewType, string> = {
   'today': '本日の業務',
@@ -176,9 +175,6 @@ const App: React.FC = () => {
 
   // Google OAuth Callback Hook
   const { handleCode, isLoading: isExchanging } = useGoogleAuthCallback({
-    supabase,
-    exchangeCodeUrl: gws.exchangeCodeUrl,
-    redirectUri: window.location.origin,
     onSuccess: () => {
       setIsGoogleConnected(true);
       fetchGoogleData();
@@ -478,23 +474,16 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3 md:gap-4 shrink-0">
             {googleError || !isGoogleConnected ? (
               <GoogleLoginButton
-                supabase={supabase}
-                config={{
-                  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
-                  redirectUri: window.location.origin,
-                  scopes: [
-                    'https://www.googleapis.com/auth/gmail.readonly',
-                    'https://www.googleapis.com/auth/gmail.send',
-                    'https://www.googleapis.com/auth/calendar.readonly',
-                    'https://www.googleapis.com/auth/drive.readonly',
-                  ],
-                  usePKCE: true
-                }}
-                exchangeCodeUrl={gws.exchangeCodeUrl}
                 variant="default"
                 label="Googleと連携"
                 connectedLabel="Google 接続済み"
                 defaultConnected={isGoogleConnected}
+                scopes={[
+                  'https://www.googleapis.com/auth/gmail.readonly',
+                  'https://www.googleapis.com/auth/gmail.send',
+                  'https://www.googleapis.com/auth/calendar',
+                  'https://www.googleapis.com/auth/drive.readonly',
+                ]}
                 onSuccess={() => {
                   setIsGoogleConnected(true);
                   fetchGoogleData();
