@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowLeft, X, Maximize2, Plus, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, X, Upload, Trash2 } from 'lucide-react';
 import { Task } from '../../types';
 import MeetingNotesAI from '../tools/MeetingNotesAI';
 import { compileJSX, loadCustomTools, saveCustomTool, deleteCustomTool, type CustomToolMeta } from '../../lib/jsxRuntime';
@@ -414,7 +414,7 @@ const JsxUploadDialog: React.FC<{
               <label className="text-xs font-bold text-gray-600">JSXコード</label>
               <div className="flex gap-2">
                 <button onClick={() => setPreview(!preview)}
-                  className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all ${preview ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
+                  className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all ${preview ? 'bg-[#ccfbf1] text-[#0d9488]' : 'bg-gray-100 text-gray-500'}`}>
                   {preview ? 'プレビュー中' : 'プレビュー'}
                 </button>
                 <button onClick={() => fileInputRef.current?.click()}
@@ -428,15 +428,15 @@ const JsxUploadDialog: React.FC<{
               value={jsxCode}
               onChange={e => setJsxCode(e.target.value)}
               placeholder="JSX / TSX コードをペーストまたはファイルをアップロード..."
-              className="w-full h-48 bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-mono text-gray-700 outline-none resize-y focus:border-indigo-300 transition-all"
+              className="w-full h-48 bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-mono text-gray-700 outline-none resize-y focus:border-[#0d9488] transition-all"
             />
           </div>
 
           {/* プレビュー */}
           {preview && PreviewComponent && (
-            <div className="border-2 border-indigo-200 rounded-xl p-4 bg-indigo-50/30">
-              <div className="text-[10px] font-bold text-indigo-500 mb-2">PREVIEW</div>
-              <div className="bg-white rounded-lg p-3 border border-indigo-100 max-h-60 overflow-auto">
+            <div className="border border-[#99f6e4] rounded-xl p-4 bg-[#f0fdfa]">
+              <div className="text-[10px] font-bold text-[#0d9488] mb-2">PREVIEW</div>
+              <div className="bg-white rounded-lg p-3 border border-[#e2e8f0] max-h-60 overflow-auto">
                 <PreviewComponent />
               </div>
             </div>
@@ -447,29 +447,29 @@ const JsxUploadDialog: React.FC<{
             <div>
               <label className="text-xs font-bold text-gray-600 mb-1 block">アプリ名 *</label>
               <input value={name} onChange={e => setName(e.target.value)} placeholder="Meeting Notes AI"
-                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-[#0d9488]" />
             </div>
             <div>
               <label className="text-xs font-bold text-gray-600 mb-1 block">アイコン</label>
               <input value={icon} onChange={e => setIcon(e.target.value)} placeholder="🧩"
-                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-[#0d9488]" />
             </div>
           </div>
           <div>
             <label className="text-xs font-bold text-gray-600 mb-1 block">説明</label>
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="何に使うツールか..."
-              className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+              className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-[#0d9488]" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-bold text-gray-600 mb-1 block">タグ（カンマ区切り）</label>
               <input value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="会議, MTG, 議事録"
-                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300" />
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-[#0d9488]" />
             </div>
             <div>
               <label className="text-xs font-bold text-gray-600 mb-1 block">カテゴリ</label>
               <select value={category} onChange={e => setCategory(e.target.value as CustomToolMeta['category'])}
-                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-indigo-300">
+                className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-[#0d9488]">
                 <option value="productivity">生産性</option>
                 <option value="utility">ユーティリティ</option>
                 <option value="developer">開発ツール</option>
@@ -485,7 +485,7 @@ const JsxUploadDialog: React.FC<{
         <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
           <button onClick={onClose} className="px-5 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700">キャンセル</button>
           <button onClick={handleRegister}
-            className="px-5 py-2 text-sm font-bold text-white bg-indigo-500 hover:bg-indigo-600 rounded-xl transition-colors">
+            className="px-5 py-2 text-sm font-bold text-white bg-[#0d9488] hover:bg-[#0f766e] rounded-xl transition-colors">
             登録する
           </button>
         </div>
@@ -571,20 +571,25 @@ const ToolsView: React.FC<ToolsViewProps> = ({ task }) => {
     }
   };
 
+  const isCustomTool = (id: string) => id.startsWith('custom-');
+
   /* ─── Full Page Mode ─── */
   if (fullPageTool) {
     const Comp = fullPageTool.component;
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white flex-shrink-0">
+      <div className="h-full flex flex-col bg-[#f8fafb]">
+        <div className="flex items-center justify-between px-6 h-14 border-b border-[#e2e8f0] bg-white flex-shrink-0">
           <button onClick={() => setFullPageToolId(null)}
-            className="flex items-center gap-1.5 text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors">
-            <ArrowLeft size={18} /> ツール一覧
+            className="flex items-center gap-2 text-[#94a3b8] hover:text-[#0f172a] text-sm font-medium transition-colors">
+            <ArrowLeft size={16} /> ツール一覧
           </button>
-          <div className="flex items-center gap-2 ml-auto">
-            <span className="text-lg">{fullPageTool.icon}</span>
-            <span className="text-sm font-bold text-gray-800">{fullPageTool.name}</span>
-          </div>
+          <span className="text-sm font-semibold text-[#0f172a]">{fullPageTool.name}</span>
+          {isCustomTool(fullPageTool.id) && (
+            <button onClick={() => { handleDeleteCustomTool(fullPageTool.id); }}
+              className="text-[#94a3b8] hover:text-[#ef4444] transition-colors">
+              <Trash2 size={15} />
+            </button>
+          )}
         </div>
         <div className="flex-1 min-h-0 overflow-hidden">
           <Comp task={task} />
@@ -593,21 +598,17 @@ const ToolsView: React.FC<ToolsViewProps> = ({ task }) => {
     );
   }
 
-  /* ─── App Store Grid ─── */
+  /* ─── Main View ─── */
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-6 pb-20">
+    <div className="h-full overflow-y-auto bg-[#f8fafb]">
+      <div className="max-w-4xl mx-auto px-6 py-8 pb-20">
+
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-lg font-bold text-gray-800">ツール</h2>
-            <p className="text-xs text-gray-400 mt-1">
-              業務で使えるアプリ集 — タスクに応じて自動で提案されます
-            </p>
-          </div>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-xl font-bold text-[#0f172a] tracking-tight">ツール</h1>
           <button onClick={() => setShowUploadDialog(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-500 hover:bg-indigo-600 transition-colors">
-            <Plus size={14} /> JSX登録
+            className="flex items-center gap-2 h-10 px-5 rounded-lg text-sm font-semibold text-white bg-[#0d9488] hover:bg-[#0f766e] transition-colors">
+            登録
           </button>
         </div>
 
@@ -616,147 +617,131 @@ const ToolsView: React.FC<ToolsViewProps> = ({ task }) => {
           <JsxUploadDialog onRegister={handleCustomToolRegister} onClose={() => setShowUploadDialog(false)} />
         )}
 
-        {/* Search + Category Filter */}
-        <div className="mb-5 space-y-3">
+        {/* Tabs */}
+        <div className="flex gap-0 border-b border-[#e2e8f0] mb-6">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setFilter(cat)}
+              className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                filter === cat
+                  ? 'border-[#0d9488] text-[#0d9488]'
+                  : 'border-transparent text-[#94a3b8] hover:text-[#64748b]'
+              }`}
+            >
+              {cat === 'all' ? 'すべて' : CATEGORY_LABELS[cat]?.label || cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="mb-6">
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="ツールを検索..."
-            className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[var(--color-accent)] transition-all"
+            className="w-full h-10 px-4 text-sm bg-white border border-[#e2e8f0] rounded-lg outline-none focus:border-[#0d9488] text-[#0f172a] placeholder-[#cbd5e1] transition-colors"
           />
-          <div className="flex gap-2 flex-wrap">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFilter(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  filter === cat
-                    ? 'bg-zinc-800 text-white'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {cat === 'all' ? '🏠 すべて' : `${CATEGORY_LABELS[cat]?.icon || ''} ${CATEGORY_LABELS[cat]?.label || cat}`}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Task context badge */}
+        {/* Task context */}
         {task && matchedToolIds.size > 0 && (
-          <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
-            <div className="text-[10px] font-bold text-blue-600 tracking-widest mb-1">タスク連動</div>
-            <div className="text-xs text-blue-800 font-medium">
-              「{task.title}」に関連するツール {matchedToolIds.size}件がハイライトされています
+          <div className="mb-6 text-sm text-[#64748b]">
+            「{task.title}」に関連: <span className="font-semibold text-[#0d9488]">{matchedToolIds.size}件</span>
+          </div>
+        )}
+
+        {/* Tool Table */}
+        <div className="bg-white border border-[#e2e8f0] rounded-2xl overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-[#e2e8f0]">
+                <th className="text-left text-xs font-semibold text-[#94a3b8] px-6 py-3">ツール名</th>
+                <th className="text-left text-xs font-semibold text-[#94a3b8] px-4 py-3 hidden sm:table-cell">カテゴリ</th>
+                <th className="text-left text-xs font-semibold text-[#94a3b8] px-4 py-3 hidden md:table-cell">タグ</th>
+                <th className="text-right text-xs font-semibold text-[#94a3b8] px-6 py-3">ステータス</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTools.map((tool, i) => {
+                const isMatched = matchedToolIds.has(tool.id);
+                const isOpen = openToolId === tool.id;
+                const isFullPage = tool.size === 'fullPage';
+
+                return (
+                  <React.Fragment key={tool.id}>
+                    <tr
+                      onClick={() => handleToolClick(tool)}
+                      className={`border-b border-[#f1f5f9] cursor-pointer transition-colors ${
+                        isOpen ? 'bg-[#f0fdfa]' : 'hover:bg-[#f8fafb]'
+                      }`}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <span className="text-base flex-shrink-0">{tool.icon}</span>
+                          <div>
+                            <div className="text-sm font-semibold text-[#0f172a]">{tool.name}</div>
+                            <div className="text-xs text-[#94a3b8] mt-0.5">{tool.description}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 hidden sm:table-cell">
+                        <span className="text-xs text-[#64748b]">{CATEGORY_LABELS[tool.category]?.label || tool.category}</span>
+                      </td>
+                      <td className="px-4 py-4 hidden md:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {tool.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="text-[10px] text-[#94a3b8]">{tag}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {isMatched && (
+                            <span className="text-[10px] font-semibold text-[#0d9488]">推奨</span>
+                          )}
+                          {isCustomTool(tool.id) && (
+                            <button
+                              onClick={e => { e.stopPropagation(); handleDeleteCustomTool(tool.id); }}
+                              className="text-[#cbd5e1] hover:text-[#ef4444] transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                          {isFullPage && (
+                            <span className="text-xs text-[#94a3b8]">開く →</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Inline expanded widget */}
+                    {isOpen && !isFullPage && (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-5 bg-[#f8fafb] border-b border-[#e2e8f0]">
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-sm font-semibold text-[#0f172a]">{openTool?.name}</span>
+                            <button onClick={() => setOpenToolId(null)} className="text-[#94a3b8] hover:text-[#64748b]">
+                              <X size={16} />
+                            </button>
+                          </div>
+                          {openTool && <openTool.component task={task} />}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {filteredTools.length === 0 && (
+            <div className="text-center py-16 text-[#94a3b8]">
+              <p className="text-sm">該当するツールがありません</p>
             </div>
-          </div>
-        )}
-
-        {/* Full-page app cards (featured) */}
-        {filteredTools.filter(t => t.size === 'fullPage').length > 0 && (
-          <div className="mb-5">
-            {filteredTools.filter(t => t.size === 'fullPage').map(tool => {
-              const isMatched = matchedToolIds.has(tool.id);
-              return (
-                <button
-                  key={tool.id}
-                  onClick={() => handleToolClick(tool)}
-                  className={`w-full text-left p-5 rounded-2xl border-2 transition-all hover:shadow-lg mb-3 ${
-                    isMatched
-                      ? 'border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md ring-1 ring-blue-200'
-                      : 'border-gray-100 bg-gradient-to-r from-white to-gray-50 hover:border-gray-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-white border border-gray-200 flex items-center justify-center text-2xl flex-shrink-0 shadow-sm">
-                      {tool.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-base font-bold text-gray-800">{tool.name}</h3>
-                        {isMatched && (
-                          <span className="text-[8px] font-black text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-md flex-shrink-0">推奨</span>
-                        )}
-                        <Maximize2 size={14} className="text-gray-300 ml-auto flex-shrink-0" />
-                      </div>
-                      <p className="text-xs text-gray-400">{tool.description}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {tool.tags.slice(0, 5).map(tag => (
-                          <span key={tag} className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">{tag}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Expanded widget tool */}
-        {openTool && openTool.size !== 'fullPage' && (
-          <div className="mb-6 bg-white border-2 border-zinc-200 rounded-2xl p-5 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{openTool.icon}</span>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-800">{openTool.name}</h3>
-                  <p className="text-[10px] text-gray-400">{openTool.description}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setOpenToolId(null)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <openTool.component task={task} />
-          </div>
-        )}
-
-        {/* Widget Tool Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {filteredTools.filter(t => t.size !== 'fullPage').map(tool => {
-            const isMatched = matchedToolIds.has(tool.id);
-            const isOpen = openToolId === tool.id;
-
-            return (
-              <button
-                key={tool.id}
-                onClick={() => handleToolClick(tool)}
-                className={`text-left p-4 rounded-xl border-2 transition-all hover:shadow-md ${
-                  tool.size === 'wide' ? 'col-span-2' : ''
-                } ${
-                  isOpen
-                    ? 'border-zinc-800 bg-zinc-800 text-white shadow-lg'
-                    : isMatched
-                      ? 'border-blue-300 bg-blue-50 shadow-md ring-1 ring-blue-200'
-                      : 'border-gray-100 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl flex-shrink-0">{tool.icon}</span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className={`text-sm font-bold truncate ${isOpen ? 'text-white' : 'text-gray-800'}`}>{tool.name}</h3>
-                      {isMatched && !isOpen && (
-                        <span className="text-[8px] font-black text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-md flex-shrink-0">推奨</span>
-                      )}
-                    </div>
-                    <p className={`text-[11px] mt-0.5 truncate ${isOpen ? 'text-zinc-300' : 'text-gray-400'}`}>{tool.description}</p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+          )}
         </div>
-
-        {filteredTools.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <p className="text-sm">該当するツールがありません</p>
-          </div>
-        )}
       </div>
     </div>
   );

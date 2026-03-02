@@ -14,7 +14,7 @@
  *   VITE_GOOGLE_REDIRECT_URI
  */
 
-import { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // ============================================================
@@ -31,6 +31,37 @@ export const supabase = createClient(
 // ============================================================
 
 const EDGE_BASE = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+
+/**
+ * Supabase Edge Function を呼び出すヘルパー
+ */
+export async function callEdgeFunction(
+  name: string,
+  options?: { body?: Record<string, unknown> }
+): Promise<any> {
+  const { data } = await supabase.auth.getSession();
+  const jwt = data.session?.access_token;
+  if (!jwt) throw new Error("Supabase にログインしていません");
+
+  const res = await fetch(`${EDGE_BASE}/${name}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      "Content-Type": "application/json",
+    },
+    body: options?.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw Object.assign(new Error(err?.error ?? `Edge Function ${name} failed`), {
+      code: err?.code,
+      reauthenticate: err?.reauthenticate,
+    });
+  }
+
+  return res.json();
+}
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 const GOOGLE_REDIRECT_URI = import.meta.env.VITE_GOOGLE_REDIRECT_URI as string;
@@ -141,6 +172,8 @@ class GoogleCalendarService {
     timeMin?: string;
     timeMax?: string;
     maxResults?: number;
+    singleEvents?: boolean;
+    orderBy?: string;
   } = {}): Promise<CalendarEvent[]> {
     const { calendarId = "primary", timeMin = new Date().toISOString(), timeMax, maxResults = 10 } = opts;
     const q = new URLSearchParams({ timeMin, maxResults: String(maxResults), orderBy: "startTime", singleEvents: "true" });
