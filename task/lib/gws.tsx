@@ -114,6 +114,7 @@ class GoogleTokenService {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      console.error("get-google-token failed:", res.status, err);
       const error = Object.assign(new Error(err?.error ?? "トークン取得失敗"), {
         code: err?.code,
         reauthenticate: err?.reauthenticate,
@@ -331,14 +332,7 @@ class GeminiService {
     const body: Record<string, unknown> = { model, contents: messages };
     if (systemInstruction) body.config = { systemInstruction };
 
-    const res = await fetch(`${EDGE_BASE}/gemini-proxy`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`Gemini ${res.status}`);
-
-    const data = await res.json();
+    const data = await callEdgeFunction("gemini-proxy", { body });
     return data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   }
 

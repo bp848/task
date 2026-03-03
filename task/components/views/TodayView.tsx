@@ -286,6 +286,14 @@ const TodayView: React.FC<TodayViewProps> = ({
     setRoutineFreqPicker(null);
   };
 
+  const handleRemoveRoutine = (e: React.MouseEvent, title: string) => {
+    e.stopPropagation();
+    if (window.confirm(`「${title}」のテンプレートを削除しますか？`)) {
+      const tasksToUpdate = tasks.filter(t => t.title === title && t.isRoutine);
+      tasksToUpdate.forEach(t => onUpdateTask(t.id, { isRoutine: false, tags: t.tags.filter(tag => !['daily', 'weekly', 'monthly'].includes(tag)) }));
+    }
+  };
+
   // 過去のタスク名からユニーク候補を生成
   const pastTaskTitles = useMemo(() => {
     const seen = new Set<string>();
@@ -525,6 +533,7 @@ const TodayView: React.FC<TodayViewProps> = ({
                       <button
                         key={i}
                         className="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-zinc-50 last:border-0 transition-colors cursor-pointer"
+                        onMouseDown={e => e.preventDefault()}
                         onClick={() => {
                           setInputValue(s.title);
                           if (s.isRoutineMatch && s.task) {
@@ -614,24 +623,36 @@ const TodayView: React.FC<TodayViewProps> = ({
               {routineTemplates.map(tmpl => {
                 const alreadyAdded = filteredTasks.some(t => t.title === tmpl.title && !t.completed);
                 return (
-                  <button
-                    key={tmpl.id}
-                    onClick={() => !alreadyAdded && handleAddRoutine(tmpl)}
-                    disabled={alreadyAdded}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all active:scale-95 ${
-                      alreadyAdded
-                        ? 'bg-green-50 text-green-500 cursor-default border border-green-200'
-                        : 'bg-white text-zinc-700 border border-zinc-200 hover:border-zinc-400 hover:shadow-sm cursor-pointer'
-                    }`}
-                  >
-                    {alreadyAdded ? (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    ) : (
-                      <svg className="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                    )}
-                    <span>{tmpl.title}</span>
-                    {tmpl.customerName && <span className="text-zinc-400 text-[10px]">@{tmpl.customerName}</span>}
-                  </button>
+                  <div key={tmpl.id} className="inline-flex group/tmpl">
+                    <button
+                      onClick={() => !alreadyAdded && handleAddRoutine(tmpl)}
+                      disabled={alreadyAdded}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-md text-xs font-medium transition-all active:scale-95 ${
+                        alreadyAdded
+                          ? 'bg-green-50 text-green-500 cursor-default border border-green-200 border-r-0'
+                          : 'bg-white text-zinc-700 border border-zinc-200 hover:border-zinc-400 hover:shadow-sm cursor-pointer border-r-0'
+                      }`}
+                    >
+                      {alreadyAdded ? (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      ) : (
+                        <svg className="w-3 h-3 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                      )}
+                      <span>{tmpl.title}</span>
+                      {tmpl.customerName && <span className="text-zinc-400 text-[10px]">@{tmpl.customerName}</span>}
+                    </button>
+                    <button
+                      onClick={(e) => handleRemoveRoutine(e, tmpl.title)}
+                      className={`inline-flex items-center justify-center px-1.5 rounded-r-md transition-all border border-l-0 ${
+                        alreadyAdded
+                          ? 'bg-green-50 text-green-500 border-green-200'
+                          : 'bg-white text-zinc-300 border-zinc-200 hover:bg-red-50 hover:text-red-500 hover:border-red-200'
+                      }`}
+                      title="テンプレートを削除"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
                 );
               })}
             </div>

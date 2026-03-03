@@ -150,7 +150,7 @@ export default function ProcurementAnalyzer() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sourceUrl]);
 
   const addFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
