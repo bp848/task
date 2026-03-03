@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ArrowLeft, X, Upload, Trash2 } from 'lucide-react';
 import { Task } from '../../types';
 import MeetingNotesAI from '../tools/MeetingNotesAI';
+import ProcurementAnalyzer from '../tools/ProcurementAnalyzer';
 import { compileJSX, loadCustomTools, saveCustomTool, deleteCustomTool, type CustomToolMeta } from '../../lib/jsxRuntime';
 
 /* ────────────────────────────────────────────
@@ -235,6 +236,16 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     component: MeetingNotesAI,
     tags: ['MTG', '会議', '議事録', 'ミーティング', '録音', '打ち合わせ', '面談', '商談'],
     category: 'communication',
+    size: 'fullPage',
+  },
+  {
+    id: 'procurement-analyzer',
+    name: '入札準備アナライザー',
+    description: '調達情報PDFをAI分析し、入札準備に必要な情報を自動抽出',
+    icon: '📄',
+    component: ProcurementAnalyzer,
+    tags: ['入札', '調達', 'PDF', '官公庁', '仕様書', '公共事業', '契約', '提案'],
+    category: 'productivity',
     size: 'fullPage',
   },
   {

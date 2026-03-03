@@ -318,7 +318,11 @@ class GoogleDriveService {
 // Gemini Service
 // ============================================================
 
-export interface GeminiMessage { role: "user" | "model"; parts: Array<{ text: string }> }
+export type GeminiPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
+export interface GeminiMessage { role: "user" | "model"; parts: GeminiPart[] }
 
 class GeminiService {
   async chat(messages: GeminiMessage[], opts: { model?: string; systemInstruction?: string } = {}): Promise<string> {
