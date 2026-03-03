@@ -16,12 +16,17 @@ declare const Deno: any;
  *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
  *   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
  *   TOKEN_ENCRYPTION_KEY  (same key used in exchange-google-code)
- *   ALLOWED_ORIGIN
+ *   ALLOWED_ORIGIN  (comma-separated for multiple origins)
  */
 
-function getCors() {
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") || "*").split(",").map((s: string) => s.trim());
+
+function getCors(req?: Request) {
+  const origin = req?.headers.get("Origin") || "";
+  const allow = ALLOWED_ORIGINS.includes("*") ? "*"
+    : ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
-    "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
+    "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, content-type",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Max-Age": "86400",
@@ -29,18 +34,18 @@ function getCors() {
   };
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: getCors() });
+function json(body: unknown, status = 200, req?: Request) {
+  return new Response(JSON.stringify(body), { status, headers: getCors(req) });
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: getCors() });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: getCors(req) });
 
   try {
     // 1. JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "Missing Authorization header" }, 401);
+      return json({ error: "Missing Authorization header" }, 401, req);
     }
 
     const accessToken = authHeader.replace("Bearer ", "").trim();
@@ -51,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
     if (userError || !user) {
-      return json({ error: "Invalid user session" }, 401);
+      return json({ error: "Invalid user session" }, 401, req);
     }
 
     // 2. Fetch encrypted refresh_token from DB
@@ -67,7 +72,7 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (error || !data?.refresh_token) {
-      return json({ error: "No Google token found. Please connect Google.", code: "NO_REFRESH_TOKEN" }, 409);
+      return json({ error: "No Google token found. Please connect Google.", code: "NO_REFRESH_TOKEN" }, 409, req);
     }
 
     // 3. Decrypt AES-256-GCM encrypted token
@@ -76,7 +81,7 @@ Deno.serve(async (req: Request) => {
       refreshToken = await decrypt(data.refresh_token);
     } catch (e: any) {
       console.error("Decryption error:", e?.message);
-      return json({ error: "Token decryption failed. Check TOKEN_ENCRYPTION_KEY.", code: "DECRYPT_FAILED" }, 500);
+      return json({ error: "Token decryption failed. Check TOKEN_ENCRYPTION_KEY.", code: "DECRYPT_FAILED" }, 500, req);
     }
 
     // 4. Exchange refresh_token for access_token with Google
@@ -96,13 +101,13 @@ Deno.serve(async (req: Request) => {
     const googleJson = await googleRes.json();
 
     if (!googleRes.ok) {
-      return json({ error: "Failed to refresh Google token", detail: googleJson?.error, reauthenticate: true }, 401);
+      return json({ error: "Failed to refresh Google token", detail: googleJson?.error, reauthenticate: true }, 401, req);
     }
 
-    return json({ access_token: googleJson.access_token, expires_in: googleJson.expires_in });
+    return json({ access_token: googleJson.access_token, expires_in: googleJson.expires_in }, 200, req);
 
   } catch (err) {
     console.error("get-google-token error:", err);
-    return json({ error: "Internal server error" }, 500);
+    return json({ error: "Internal server error" }, 500, req);
   }
 });

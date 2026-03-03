@@ -17,26 +17,32 @@ declare const Deno: any;
  *   ALLOWED_ORIGIN
  */
 
-function getCors() {
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") || "*").split(",").map((s: string) => s.trim());
+
+function getCors(req?: Request) {
+  const origin = req?.headers.get("Origin") || "";
+  const allow = ALLOWED_ORIGINS.includes("*") ? "*"
+    : ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
-    "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
+    "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Content-Type": "application/json",
   };
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: getCors() });
+function json(body: unknown, status = 200, req?: Request) {
+  return new Response(JSON.stringify(body), { status, headers: getCors(req) });
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: getCors() });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: getCors(req) });
 
   try {
     // ── JWT validation (added) ───────────────────────────────
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "Unauthorized: missing Bearer token", code: "NO_AUTH_HEADER" }, 401);
+      return json({ error: "Unauthorized: missing Bearer token", code: "NO_AUTH_HEADER" }, 401, req);
     }
 
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
@@ -47,13 +53,13 @@ Deno.serve(async (req: Request) => {
 
     const { data: { user }, error: userErr } = await supabase.auth.getUser(jwt);
     if (userErr || !user) {
-      return json({ error: "Unauthorized: invalid or expired session", code: "INVALID_SESSION" }, 401);
+      return json({ error: "Unauthorized: invalid or expired session", code: "INVALID_SESSION" }, 401, req);
     }
 
     // ── Gemini API key check ─────────────────────────────────
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
-      return json({ error: "Server misconfiguration: missing GEMINI_API_KEY" }, 500);
+      return json({ error: "Server misconfiguration: missing GEMINI_API_KEY" }, 500, req);
     }
 
     // ── Parse and validate payload ───────────────────────────
@@ -70,11 +76,11 @@ Deno.serve(async (req: Request) => {
     try {
       payload = await req.json();
     } catch {
-      return json({ error: "Invalid JSON body" }, 400);
+      return json({ error: "Invalid JSON body" }, 400, req);
     }
 
     const { model, contents = [], config = {} } = payload;
-    if (!model) return json({ error: "Missing model" }, 400);
+    if (!model) return json({ error: "Missing model" }, 400, req);
 
     // ── Build Gemini request body ────────────────────────────
     const requestBody: Record<string, unknown> = { contents };
@@ -101,11 +107,11 @@ Deno.serve(async (req: Request) => {
     const text = await geminiRes.text();
     return new Response(text, {
       status: geminiRes.status,
-      headers: getCors(),
+      headers: getCors(req),
     });
 
   } catch (error) {
     console.error("[gemini-proxy] Error:", error);
-    return json({ error: "Internal server error" }, 500);
+    return json({ error: "Internal server error" }, 500, req);
   }
 });

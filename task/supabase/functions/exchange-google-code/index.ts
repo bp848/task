@@ -15,29 +15,35 @@ declare const Deno: any;
  *   SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
  *   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
  *   TOKEN_ENCRYPTION_KEY  (32-byte base64: openssl rand -base64 32)
- *   ALLOWED_ORIGIN
+ *   ALLOWED_ORIGIN  (comma-separated for multiple origins)
  */
 
-function getCors() {
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGIN") || "*").split(",").map((s: string) => s.trim());
+
+function getCors(req?: Request) {
+  const origin = req?.headers.get("Origin") || "";
+  const allow = ALLOWED_ORIGINS.includes("*") ? "*"
+    : ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
-    "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "*",
+    "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Content-Type": "application/json",
   };
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: getCors() });
+function json(body: unknown, status = 200, req?: Request) {
+  return new Response(JSON.stringify(body), { status, headers: getCors(req) });
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: getCors() });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: getCors(req) });
 
   try {
     // 1. JWT validation
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return json({ error: "Unauthorized", code: "NO_AUTH_HEADER" }, 401);
+      return json({ error: "Unauthorized", code: "NO_AUTH_HEADER" }, 401, req);
     }
 
     const jwt = authHeader.replace(/^Bearer\s+/i, "");
@@ -49,20 +55,20 @@ Deno.serve(async (req: Request) => {
 
     const { data: { user }, error: userErr } = await userClient.auth.getUser(jwt);
     if (userErr || !user) {
-      return json({ error: "Invalid session", code: "INVALID_SESSION" }, 401);
+      return json({ error: "Invalid session", code: "INVALID_SESSION" }, 401, req);
     }
 
     // 2. Parse body
     let body: { code?: string; redirect_uri?: string; code_verifier?: string } = {};
     try { body = await req.json(); } catch {
-      return json({ error: "Invalid JSON body", code: "INVALID_BODY" }, 400);
+      return json({ error: "Invalid JSON body", code: "INVALID_BODY" }, 400, req);
     }
 
     const code = body.code?.trim();
-    if (!code) return json({ error: "code is required", code: "MISSING_CODE" }, 400);
+    if (!code) return json({ error: "code is required", code: "MISSING_CODE" }, 400, req);
 
     const redirectUri = body.redirect_uri?.trim() || Deno.env.get("GOOGLE_REDIRECT_URI") || "";
-    if (!redirectUri) return json({ error: "redirect_uri required", code: "MISSING_REDIRECT_URI" }, 400);
+    if (!redirectUri) return json({ error: "redirect_uri required", code: "MISSING_REDIRECT_URI" }, 400, req);
 
     // 3. Exchange code for tokens with Google
     const tokenParams = new URLSearchParams({
@@ -82,12 +88,12 @@ Deno.serve(async (req: Request) => {
 
     if (!tokenRes.ok) {
       console.error("Google token error:", await tokenRes.text());
-      return json({ error: "Google token exchange failed", code: "GOOGLE_TOKEN_FAILED", reauthenticate: true }, 400);
+      return json({ error: "Google token exchange failed", code: "GOOGLE_TOKEN_FAILED", reauthenticate: true }, 400, req);
     }
 
     const { refresh_token: refreshToken } = await tokenRes.json();
     if (!refreshToken) {
-      return json({ error: "Google did not return refresh_token. Ensure prompt=consent.", code: "NO_REFRESH_TOKEN", reauthenticate: true }, 400);
+      return json({ error: "Google did not return refresh_token. Ensure prompt=consent.", code: "NO_REFRESH_TOKEN", reauthenticate: true }, 400, req);
     }
 
     // 4. Encrypt refresh_token with AES-256-GCM before storing
@@ -96,7 +102,7 @@ Deno.serve(async (req: Request) => {
       encryptedToken = await encrypt(refreshToken);
     } catch (e: any) {
       console.error("Encryption error:", e?.message);
-      return json({ error: "Token encryption failed. Check TOKEN_ENCRYPTION_KEY secret.", code: "ENCRYPT_FAILED" }, 500);
+      return json({ error: "Token encryption failed. Check TOKEN_ENCRYPTION_KEY secret.", code: "ENCRYPT_FAILED" }, 500, req);
     }
 
     // 5. Upsert encrypted token to DB
@@ -111,13 +117,13 @@ Deno.serve(async (req: Request) => {
 
     if (upsertErr) {
       console.error("Upsert failed:", upsertErr);
-      return json({ error: "Failed to save token", code: "UPSERT_FAILED" }, 500);
+      return json({ error: "Failed to save token", code: "UPSERT_FAILED" }, 500, req);
     }
 
-    return json({ ok: true });
+    return json({ ok: true }, 200, req);
 
   } catch (e: any) {
     console.error("exchange-google-code error:", e?.message || e);
-    return json({ error: "Internal server error", code: "UNHANDLED" }, 500);
+    return json({ error: "Internal server error", code: "UNHANDLED" }, 500, req);
   }
 });

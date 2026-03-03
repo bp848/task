@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { gws, type GeminiPart } from "../../lib/gws";
+import { gws, supabase, type GeminiPart } from "../../lib/gws";
 
 const SYSTEM_PROMPT = `あなたは日本の官公庁入札の専門コンサルタントです。アップロードされた調達情報PDFを分析し、入札準備に必要な情報を体系的に整理してください。
 
@@ -72,6 +72,8 @@ export default function ProcurementAnalyzer() {
   const [progress, setProgress] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [savedLeadId, setSavedLeadId] = useState<string | null>(null);
 
   const readFileAsBase64 = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -107,6 +109,39 @@ export default function ProcurementAnalyzer() {
       const cleaned = raw.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(cleaned);
       setAnalysis(parsed);
+
+      // ── leads_v2にINSERT + PDFをバケットに保管 ──
+      setProgress("データを保存中...");
+      try {
+        const title = parsed["案件概要"]?.["調達案件名称"] || pdfFiles.map(f => f.name).join(", ");
+        const { data: lead, error: leadErr } = await supabase
+          .from("leads_v2")
+          .insert({
+            title,
+            status: "new",
+            source: sourceUrl || "PDF分析",
+            notes: JSON.stringify(parsed, null, 2),
+          })
+          .select("id")
+          .single();
+
+        if (leadErr) console.error("lead insert error:", leadErr);
+
+        const leadId = lead?.id;
+        if (leadId) {
+          setSavedLeadId(leadId);
+          // PDFをバケットにアップロード
+          for (const file of pdfFiles) {
+            const path = `procurement/${leadId}/${file.name}`;
+            const { error: uploadErr } = await supabase.storage
+              .from("documents")
+              .upload(path, file, { contentType: "application/pdf", upsert: true });
+            if (uploadErr) console.error("PDF upload error:", uploadErr);
+          }
+        }
+      } catch (saveErr) {
+        console.error("Save error:", saveErr);
+      }
       setProgress("");
     } catch (err: any) {
       console.error(err);
@@ -117,21 +152,33 @@ export default function ProcurementAnalyzer() {
     }
   }, []);
 
-  const handleFiles = (newFiles: FileList | null) => {
+  const addFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
     const pdfs = Array.from(newFiles).filter((f) => f.type === "application/pdf");
     if (pdfs.length === 0) {
       setError("PDFファイルを選択してください");
       return;
     }
-    setFiles(pdfs);
-    analyzePDFs(pdfs);
+    setError(null);
+    setFiles(prev => [...prev, ...pdfs]);
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    handleFiles(e.dataTransfer.files);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const startAnalysis = () => {
+    if (files.length === 0) {
+      setError("PDFファイルを追加してください");
+      return;
+    }
+    analyzePDFs(files);
   };
 
   const Section = ({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) => (
@@ -185,26 +232,60 @@ export default function ProcurementAnalyzer() {
 
       <main style={styles.main}>
         {!analysis && !loading && (
-          <div
-            style={{ ...styles.dropZone, borderColor: dragOver ? "#1E3A5F" : "#CBD5E1", backgroundColor: dragOver ? "#F0F4FA" : "#FAFBFC" }}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <input ref={fileInputRef} type="file" accept="application/pdf" multiple style={{ display: "none" }}
-              onChange={(e) => handleFiles(e.target.files)} />
-            <div style={styles.dropIcon}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17,8 12,3 7,8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
+          <>
+            <div
+              style={{ ...styles.dropZone, borderColor: dragOver ? "#1E3A5F" : "#CBD5E1", backgroundColor: dragOver ? "#F0F4FA" : "#FAFBFC" }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input ref={fileInputRef} type="file" accept="application/pdf" multiple style={{ display: "none" }}
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+              <div style={styles.dropIcon}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17,8 12,3 7,8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              </div>
+              <p style={styles.dropText}>PDFをドラッグ&ドロップ</p>
+              <p style={styles.dropSubText}>またはクリックしてファイルを選択（複数可）</p>
+              <p style={styles.dropHint}>調達情報PDF、仕様書PDFなど</p>
             </div>
-            <p style={styles.dropText}>PDFをドラッグ&ドロップ</p>
-            <p style={styles.dropSubText}>またはクリックしてファイルを選択（複数可）</p>
-            <p style={styles.dropHint}>調達情報PDF、仕様書PDFなど</p>
-          </div>
+
+            {files.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#334155" }}>{files.length}件のPDFを選択中</span>
+                  <button onClick={() => fileInputRef.current?.click()}
+                    style={{ fontSize: 13, color: "#1E3A5F", fontWeight: 600, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
+                    さらに追加
+                  </button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 6, marginBottom: 16 }}>
+                  {files.map((f, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", backgroundColor: "#F8FAFC", borderRadius: 8, border: "1px solid #E8ECF1" }}>
+                      <span style={{ fontSize: 13, color: "#334155" }}>{f.name}</span>
+                      <button onClick={() => removeFile(i)}
+                        style={{ fontSize: 12, color: "#94A3B8", background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}
+                        title="削除">✕</button>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>調達情報URL（任意）</label>
+                  <input type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
+                    placeholder="https://www.geps.go.jp/..."
+                    style={{ width: "100%", padding: "10px 14px", fontSize: 14, border: "1px solid #CBD5E1", borderRadius: 8, outline: "none" }} />
+                </div>
+                <button onClick={startAnalysis}
+                  style={{ width: "100%", padding: "14px 24px", backgroundColor: "#1E3A5F", color: "#FFFFFF", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "background 0.15s" }}>
+                  分析を実行
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {loading && (
@@ -233,10 +314,27 @@ export default function ProcurementAnalyzer() {
                   {files.map((f, i) => <span key={i} style={styles.fileChip}>{f.name}</span>)}
                 </div>
               </div>
-              <button style={styles.newBtn} onClick={() => { setAnalysis(null); setFiles([]); setError(null); }}>
+              <button style={styles.newBtn} onClick={() => { setAnalysis(null); setFiles([]); setError(null); setSavedLeadId(null); setSourceUrl(""); }}>
                 新しいPDFを分析
               </button>
             </div>
+
+            {/* URL & Lead保存ステータス */}
+            {(sourceUrl || savedLeadId) && (
+              <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 8, marginBottom: 4 }}>
+                {sourceUrl && (
+                  <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 13, color: "#1E3A5F", textDecoration: "underline" }}>
+                    調達情報URL
+                  </a>
+                )}
+                {savedLeadId && (
+                  <span style={{ fontSize: 12, color: "#059669", backgroundColor: "#ECFDF5", padding: "2px 10px", borderRadius: 12, border: "1px solid #A7F3D0" }}>
+                    Lead保存済
+                  </span>
+                )}
+              </div>
+            )}
 
             {analysis["案件概要"] && (
               <Section title="案件概要" icon="📋">
