@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { gws, supabase, type GeminiPart } from "../../lib/gws";
 
 const SYSTEM_PROMPT = `あなたは日本の官公庁入札の専門コンサルタントです。アップロードされた調達情報PDFを分析し、入札準備に必要な情報を体系的に整理してください。
@@ -110,17 +110,26 @@ export default function ProcurementAnalyzer() {
       const parsed = JSON.parse(cleaned);
       setAnalysis(parsed);
 
-      // ── leads_v2にINSERT + PDFをバケットに保管 ──
+      // ── leadsにINSERT + PDFをバケットに保管 ──
       setProgress("データを保存中...");
       try {
         const title = parsed["案件概要"]?.["調達案件名称"] || pdfFiles.map(f => f.name).join(", ");
+        const company = parsed["案件概要"]?.["調達機関"] || title;
+        const name = parsed["担当窓口"]?.["担当者"] || "担当者名なし";
+        const email = parsed["担当窓口"]?.["メール"] || null;
+        const phone = parsed["担当窓口"]?.["電話"] || null;
+
         const { data: lead, error: leadErr } = await supabase
-          .from("leads_v2")
+          .from("leads")
           .insert({
-            title,
-            status: "new",
+            company,
+            name,
+            email,
+            phone,
+            status: "新規",
             source: sourceUrl || "PDF分析",
-            notes: JSON.stringify(parsed, null, 2),
+            tags: ["pdf_analysis"],
+            message: JSON.stringify(parsed, null, 2),
           })
           .select("id")
           .single();

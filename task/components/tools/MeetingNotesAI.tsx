@@ -40,7 +40,7 @@ interface Meeting {
 async function analyzeWithAI(text: string): Promise<Partial<Meeting>> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3.0-flash',
     contents: `あなたは優秀な議事録作成アシスタントです。以下の会議テキストを解析し、JSONのみを返してください（マークダウンや説明は不要）。
 
 テキスト:
@@ -53,6 +53,45 @@ ${text}
 
 タスクが明示的でない場合でも、議論から必要なフォローアップ事項を推測してください。`,
   });
+  const raw = response.text || '{}';
+  const clean = raw.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+async function analyzeAudioWithAI(audioBlob: Blob): Promise<Partial<Meeting>> {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const base64Data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(audioBlob);
+  });
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3.0-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: `あなたは優秀な議事録作成アシスタントです。提供された音声を解析し（文字起こしを含む）、JSONのみを返してください（マークダウンや説明は不要）。\n\n以下のJSON形式で出力してください:\n{"title":"会議タイトル","summary":"簡潔な要約","tasks":["タスク1","タスク2"],"transcription":"整形した文字起こし全文"}\n\nタスクが明示的でない場合でも、議論から必要なフォローアップ事項を推測してください。`
+          },
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: audioBlob.type || 'audio/webm'
+            }
+          }
+        ]
+      }
+    ]
+  });
+
   const raw = response.text || '{}';
   const clean = raw.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
@@ -244,17 +283,21 @@ function Recorder({ onComplete, onCancel }: {
     setProcStep('saving');
     try {
       setProcStep('analyzing');
-      const dur = Math.round((end - start) / 1000);
+      const result = await analyzeAudioWithAI(_blob);
       const meeting: Meeting = {
-        id: uid(), title: `録音ミーティング (${dur}秒)`, date: Date.now(),
-        startTime: start, endTime: end,
-        transcription: `[${dur}秒の音声が録音されました]\n\n※ 音声の文字起こしにはサーバーサイドの音声認識APIが必要です。\nこのデモでは「テキスト入力」モードでAI解析をお試しください。`,
-        summary: '音声録音が完了しました。テキスト入力モードを使用すると、AIによる要約・タスク抽出が利用できます。',
-        tasks: ['テキスト入力モードでAI解析機能を試す']
+        id: uid(),
+        title: result.title || '無題のミーティング',
+        date: Date.now(),
+        startTime: start,
+        endTime: end,
+        transcription: result.transcription || '文字起こしが生成できませんでした。',
+        summary: result.summary || '要約が生成できませんでした。',
+        tasks: result.tasks || []
       };
       onComplete(meeting);
-    } catch {
-      setError('音声の処理中にエラーが発生しました。');
+    } catch (err) {
+      console.error(err);
+      setError('音声の処理・解析中にエラーが発生しました。');
       setIsProcessing(false);
       setProcStep(null);
     }

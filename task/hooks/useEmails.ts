@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase, callEdgeFunction } from '../lib/gws';
+import { supabase, gws } from '../lib/gws';
 import { Email } from '../types';
 
 interface DbEmail {
@@ -42,11 +42,7 @@ export function useEmails(session: Session | null) {
     setLoading(true);
 
     try {
-      const result = await callEdgeFunction('gmail-fetch', {
-        body: { maxResults: 10, labelIds: ['INBOX'] },
-      });
-
-      const gmailData = result?.emails || result?.messages || (Array.isArray(result) ? result : []);
+      const gmailData = await gws.gmail.listMessages({ maxResults: 10, labelIds: ['INBOX'] });
 
       if (gmailData.length > 0) {
         const mapped: Email[] = gmailData.map((m: any) => ({

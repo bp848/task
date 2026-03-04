@@ -39,7 +39,9 @@ const viewTitleMap: Record<ViewType, string> = {
 
 const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/gmail.send',
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/drive.readonly',
 ].join(' ');
 
 const App: React.FC = () => {
@@ -399,7 +401,7 @@ const App: React.FC = () => {
           <button
             onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center space-x-3 text-white px-6 py-4 rounded-xl shadow-sm hover:opacity-90 transition-all text-sm font-semibold"
-            style={{ backgroundColor: '#0D9488' }}
+            style={{ backgroundColor: 'var(--color-accent)' }}
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
@@ -412,7 +414,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`flex h-screen bg-white text-gray-800 font-sans ${appSettings.psychedelic_mode ? 'psychedelic-mode' : ''}`}>
+    <div className={`flex h-[100dvh] bg-[var(--color-surface-variant)] text-gray-800 font-sans ${appSettings.psychedelic_mode ? 'psychedelic-mode' : ''}`}>
       {appSettings.psychedelic_mode && (
         <style>{`
           @keyframes psyche-hue { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
@@ -432,7 +434,7 @@ const App: React.FC = () => {
         onLogout={handleLogout}
       />
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 md:px-8 shrink-0 z-10">
+        <header className="h-[72px] border-b border-[var(--color-outline)] bg-white flex items-center justify-between px-6 shrink-0 z-10 sticky top-0">
           <div className="flex items-center gap-3 md:gap-6 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(true)}
@@ -454,8 +456,8 @@ const App: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setPlannerBulkMode(v => !v)}
-                  className={`ml-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${plannerBulkMode ? 'text-white border-teal-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                  style={plannerBulkMode ? { backgroundColor: '#0D9488' } : {}}
+                  className={`ml-2 px-4 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer border ${plannerBulkMode ? 'text-white border-[var(--color-accent)]' : 'bg-white text-gray-600 border-[var(--color-outline)] hover:bg-gray-50'}`}
+                  style={plannerBulkMode ? { backgroundColor: 'var(--color-accent)' } : {}}
                 >
                   {plannerBulkMode ? '閉じる' : '一括追加'}
                 </button>
@@ -490,8 +492,8 @@ const App: React.FC = () => {
                 }}
                 onError={(err) => setGoogleError(err)}
                 style={{
-                  backgroundColor: isGoogleConnected ? '#F0FDFA' : '#0D9488',
-                  color: isGoogleConnected ? '#0D9488' : '#fff',
+                  backgroundColor: isGoogleConnected ? 'var(--color-accent-50)' : 'var(--color-accent)',
+                  color: isGoogleConnected ? 'var(--color-accent)' : '#fff',
                   border: 'none',
                   borderRadius: '12px',
                   padding: '8px 16px',
@@ -499,13 +501,13 @@ const App: React.FC = () => {
                 }}
               />
             ) : (
-              <div className="hidden md:flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg" style={{ color: '#0D9488', backgroundColor: '#F0FDFA' }}>
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#0D9488' }}></div>
+              <div className="hidden md:flex items-center space-x-2 text-xs font-semibold px-3 py-2 rounded-lg" style={{ color: 'var(--color-accent)', backgroundColor: 'var(--color-accent-50)' }}>
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--color-accent)' }}></div>
                 <span>Google 接続済み</span>
               </div>
             )}
             {activeTaskId && (
-              <div className="flex items-center gap-2 text-white px-4 py-2 rounded-lg" style={{ backgroundColor: '#0D9488' }}>
+              <div className="flex items-center gap-2 text-white px-4 py-2 rounded-lg" style={{ backgroundColor: 'var(--color-accent)' }}>
                 <div className="w-2 h-2 bg-white rounded-full animate-ping shrink-0"></div>
                 <span className="text-xs font-semibold hidden sm:inline">計測中...</span>
               </div>

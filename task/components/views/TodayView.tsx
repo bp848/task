@@ -242,6 +242,8 @@ const TodayView: React.FC<TodayViewProps> = ({
   const [celebrateTrigger, setCelebrateTrigger] = useState(0);
   const [routineFreqPicker, setRoutineFreqPicker] = useState<string | null>(null);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const activeTask = useMemo(() => tasks.find(t => t.id === activeTaskId), [tasks, activeTaskId]);
 
   const completedCount = useMemo(() =>
@@ -294,10 +296,11 @@ const TodayView: React.FC<TodayViewProps> = ({
     }
   };
 
-  // 過去のタスク名からユニーク候補を生成
+  // 過去のタスク名からユニーク候補を生成（非表示タグがあるものは除く）
   const pastTaskTitles = useMemo(() => {
     const seen = new Set<string>();
     return tasks
+      .filter(t => !t.tags.includes('hidden_suggestion'))
       .map(t => t.title)
       .filter(title => {
         const key = title.trim().toLowerCase();
@@ -317,6 +320,7 @@ const TodayView: React.FC<TodayViewProps> = ({
 
     // 1. テンプレート登録済み（isRoutine）タスクを最優先: タイトル・詳細・顧客名で部分一致
     routineTemplates.forEach(t => {
+      if (t.tags.includes('hidden_suggestion')) return;
       const matchText = `${t.title} ${t.details || ''} ${t.customerName || ''}`.toLowerCase();
       if (matchText.includes(q) && !seen.has(t.title.toLowerCase())) {
         seen.add(t.title.toLowerCase());
@@ -342,6 +346,30 @@ const TodayView: React.FC<TodayViewProps> = ({
 
     return result.slice(0, 12);
   }, [inputValue, pastTaskTitles, routineTemplates]);
+
+  const handleHideSuggestion = (e: React.MouseEvent, title: string, isRoutineMatch: boolean) => {
+    e.stopPropagation();
+    if (isRoutineMatch) {
+      handleRemoveRoutine(e, title);
+    } else {
+      // 過去の同じタイトルのタスクすべてに hidden_suggestion タグを付与（あるいは最新のものだけでフィルタリングでも可）
+      const tasksToUpdate = tasks.filter(t => t.title === title);
+      tasksToUpdate.forEach(t => {
+        if (!t.tags.includes('hidden_suggestion')) {
+          onUpdateTask(t.id, { tags: [...t.tags, 'hidden_suggestion'] });
+        }
+      });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      handleAddTask();
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      inputRef.current?.blur();
+    }
+  };
 
   // 顧客名フィルタリング
   const filteredCustomers = useMemo(() => {
@@ -521,40 +549,55 @@ const TodayView: React.FC<TodayViewProps> = ({
             <>
               <div className="relative">
                 <input
+                  ref={inputRef}
                   value={inputValue}
                   onChange={e => { setInputValue(e.target.value); setShowSuggestions(true); }}
                   onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  onKeyDown={handleKeyDown}
                   placeholder="タスク名を入力..."
                   className="input-base text-sm"
                 />
                 {showSuggestions && filteredSuggestions.length > 0 && (
                   <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-zinc-200 rounded-lg shadow-lg z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar animate-fade-in">
                     {filteredSuggestions.map((s, i) => (
-                      <button
+                      <div
                         key={i}
-                        className="w-full text-left px-3 py-2 hover:bg-zinc-50 border-b border-zinc-50 last:border-0 transition-colors cursor-pointer"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => {
-                          setInputValue(s.title);
-                          if (s.isRoutineMatch && s.task) {
-                            setCustomerInput(s.task.customerName || '');
-                            setProjectInput(s.task.projectName || '');
-                          }
-                          setShowSuggestions(false);
-                        }}
+                        className="group/suggest flex items-center w-full hover:bg-zinc-50 border-b border-zinc-50 last:border-0 transition-colors"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm text-zinc-800 truncate">{s.title}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 font-medium ${
-                            s.isRoutineMatch ? 'bg-blue-50 text-blue-600' : 'bg-zinc-100 text-zinc-400'
-                          }`}>
-                            {s.isRoutineMatch ? 'テンプレ' : '履歴'}
-                          </span>
-                        </div>
-                        {s.isRoutineMatch && s.task?.customerName && (
-                          <div className="text-[11px] text-zinc-400 mt-0.5">{s.task.customerName}</div>
-                        )}
-                      </button>
+                        <button
+                          className="flex-1 text-left px-3 py-2 cursor-pointer min-w-0"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            setInputValue(s.title);
+                            if (s.isRoutineMatch && s.task) {
+                              setCustomerInput(s.task.customerName || '');
+                              setProjectInput(s.task.projectName || '');
+                            }
+                            setShowSuggestions(false);
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm text-zinc-800 truncate">{s.title}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 font-medium ${
+                              s.isRoutineMatch ? 'bg-blue-50 text-blue-600' : 'bg-zinc-100 text-zinc-400'
+                            }`}>
+                              {s.isRoutineMatch ? 'テンプレ' : '履歴'}
+                            </span>
+                          </div>
+                          {s.isRoutineMatch && s.task?.customerName && (
+                            <div className="text-[11px] text-zinc-400 mt-0.5">{s.task.customerName}</div>
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => handleHideSuggestion(e, s.title, s.isRoutineMatch)}
+                          className="p-3 text-zinc-300 hover:text-red-500 opacity-0 group-hover/suggest:opacity-100 transition-all cursor-pointer"
+                          title="候補から消す"
+                          onMouseDown={e => e.preventDefault()}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}

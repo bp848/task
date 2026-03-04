@@ -218,6 +218,7 @@ export interface GmailMessage {
   date?: string;
   snippet?: string;
   body?: string;
+  labelIds?: string[];
 }
 
 class GoogleGmailService {
@@ -246,7 +247,7 @@ class GoogleGmailService {
 
   async getMessage(id: string): Promise<GmailMessage> {
     const data = await this.fetch<{
-      id: string; threadId: string; snippet?: string;
+      id: string; threadId: string; snippet?: string; labelIds?: string[];
       payload?: { headers?: Array<{ name: string; value: string }>; body?: { data?: string }; parts?: Array<{ mimeType: string; body?: { data?: string } }> };
     }>(`/messages/${id}?format=full`);
 
@@ -255,7 +256,7 @@ class GoogleGmailService {
     const rawBody = data.payload?.parts?.find((p) => p.mimeType === "text/plain")?.body?.data ?? data.payload?.body?.data;
     const body = rawBody ? atob(rawBody.replace(/-/g, "+").replace(/_/g, "/")) : "";
 
-    return { id: data.id, threadId: data.threadId, subject: hdr("subject"), from: hdr("from"), to: hdr("to"), date: hdr("date"), snippet: data.snippet, body };
+    return { id: data.id, threadId: data.threadId, subject: hdr("subject"), from: hdr("from"), to: hdr("to"), date: hdr("date"), snippet: data.snippet, body, labelIds: data.labelIds };
   }
 
   async sendMessage(opts: { to: string; subject: string; body: string; isHtml?: boolean }): Promise<void> {

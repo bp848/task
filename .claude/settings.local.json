@@ -6,12 +6,10 @@
       "Bash(npx tsup src/index.ts --format cjs,esm --dts)",
       "Bash(npx supabase projects list)",
       "Bash(npx supabase login)",
-
       "Bash(bash .claude/scripts/test-and-log.sh:*)",
       "Bash(.claude/scripts/test-and-log.sh:*)",
       "Bash(bash .claude/scripts/pm/*)",
       "Bash(.claude/scripts/pm/*)",
-
       "Bash(cat:*)",
       "Bash(find:*)",
       "Bash(gh:*)",
@@ -30,7 +28,15 @@
       "Bash(tree:*)",
       "List(**)",
       "WebFetch(domain:github.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(curl -s -w \"\\\\nHTTP_CODE:%{http_code}\" \"https://rwjhpfghhgstvplmggks.supabase.co/functions/v1/get-google-token\")",
+      "mcp__claude_ai_Vercel__list_teams",
+      "Bash(vercel env ls)",
+      "Bash(vercel projects ls)",
+      "Bash(vercel link --yes --project task)",
+      "Bash(vercel env add VITE_SUPABASE_URL production)",
+      "Bash(vercel env add VITE_GOOGLE_CLIENT_ID production)",
+      "Bash(vercel ls --limit 3)"
     ]
   }
 }

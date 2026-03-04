@@ -60,10 +60,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <aside className={`
         flex flex-col h-full
-        bg-white border-r border-gray-200
+        bg-white border-r border-[var(--color-outline)]
         transition-all duration-250 ease-in-out
         fixed md:relative z-50
-        ${isOpen ? 'w-60 translate-x-0' : 'w-60 -translate-x-full md:w-14 md:translate-x-0'}
+        ${isOpen ? 'w-[260px] translate-x-0' : 'w-[260px] -translate-x-full md:w-[72px] md:translate-x-0'}
       `}>
         {/* ユーザー情報 */}
         <div className={`h-16 border-b border-gray-200 flex items-center shrink-0 ${isOpen ? 'px-5 gap-3' : 'px-0 justify-center'}`}>
