@@ -7,6 +7,24 @@ import {
 } from 'lucide-react';
 import type { ToolProps } from '../views/ToolsView';
 
+/* ─── SpeechRecognition type shim ─── */
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+interface SpeechRecognition extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
 /* ─── helpers ─── */
 const uid = () => crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -58,9 +76,9 @@ ${text}
   return JSON.parse(clean);
 }
 
-async function analyzeAudioWithAI(audioBlob: Blob): Promise<Partial<Meeting>> {
+async function analyzeAudioWithAI(audioBlob: Blob, sttTranscript?: string): Promise<Partial<Meeting>> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
+
   const base64Data = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -72,6 +90,10 @@ async function analyzeAudioWithAI(audioBlob: Blob): Promise<Partial<Meeting>> {
     reader.readAsDataURL(audioBlob);
   });
 
+  const sttHint = sttTranscript?.trim()
+    ? `\n\n参考：リアルタイム音声認識（STT）の結果を以下に示します。誤認識がある場合は音声を優先して修正してください:\n"""\n${sttTranscript}\n"""`
+    : '';
+
   const response = await ai.models.generateContent({
     model: 'gemini-3.0-flash',
     contents: [
@@ -79,7 +101,7 @@ async function analyzeAudioWithAI(audioBlob: Blob): Promise<Partial<Meeting>> {
         role: 'user',
         parts: [
           {
-            text: `あなたは優秀な議事録作成アシスタントです。提供された音声を解析し（文字起こしを含む）、JSONのみを返してください（マークダウンや説明は不要）。\n\n以下のJSON形式で出力してください:\n{"title":"会議タイトル","summary":"簡潔な要約","tasks":["タスク1","タスク2"],"transcription":"整形した文字起こし全文"}\n\nタスクが明示的でない場合でも、議論から必要なフォローアップ事項を推測してください。`
+            text: `あなたは優秀な議事録作成アシスタントです。提供された音声を解析し（文字起こしを含む）、JSONのみを返してください（マークダウンや説明は不要）。\n\n以下のJSON形式で出力してください:\n{"title":"会議タイトル","summary":"簡潔な要約","tasks":["タスク1","タスク2"],"transcription":"整形した文字起こし全文"}\n\nタスクが明示的でない場合でも、議論から必要なフォローアップ事項を推測してください。${sttHint}`
           },
           {
             inlineData: {
@@ -260,6 +282,8 @@ function Recorder({ onComplete, onCancel }: {
   const [recTime, setRecTime] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const [textInput, setTextInput] = useState('');
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [interimText, setInterimText] = useState('');
 
   const mediaRecRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -268,29 +292,33 @@ function Recorder({ onComplete, onCancel }: {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number>(0);
   const startRef = useRef<number>(0);
+  const sttRef = useRef<SpeechRecognition | null>(null);
+  const sttTranscriptRef = useRef<string>('');
+  const transcriptEndRef = useRef<HTMLDivElement | null>(null);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     if (audioCtxRef.current) { try { audioCtxRef.current.close(); } catch {} }
     if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop();
+    if (sttRef.current) { try { sttRef.current.stop(); } catch {} sttRef.current = null; }
   }, []);
 
   useEffect(() => () => cleanup(), [cleanup]);
 
-  const processAudioBlob = useCallback(async (_blob: Blob, start: number, end: number) => {
+  const processAudioBlob = useCallback(async (_blob: Blob, start: number, end: number, sttText: string) => {
     setIsProcessing(true);
     setProcStep('saving');
     try {
       setProcStep('analyzing');
-      const result = await analyzeAudioWithAI(_blob);
+      const result = await analyzeAudioWithAI(_blob, sttText);
       const meeting: Meeting = {
         id: uid(),
         title: result.title || '無題のミーティング',
         date: Date.now(),
         startTime: start,
         endTime: end,
-        transcription: result.transcription || '文字起こしが生成できませんでした。',
+        transcription: result.transcription || sttText || '文字起こしが生成できませんでした。',
         summary: result.summary || '要約が生成できませんでした。',
         tasks: result.tasks || []
       };
@@ -303,9 +331,49 @@ function Recorder({ onComplete, onCancel }: {
     }
   }, [onComplete]);
 
+  const startSTT = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ja-JP';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    sttTranscriptRef.current = '';
+    setLiveTranscript('');
+    setInterimText('');
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          sttTranscriptRef.current += t + '\n';
+          setLiveTranscript(sttTranscriptRef.current);
+          setTimeout(() => transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        } else {
+          interim += t;
+        }
+      }
+      setInterimText(interim);
+    };
+    recognition.onerror = () => {};
+    recognition.onend = () => {
+      // 録音中なら自動再開
+      if (mediaRecRef.current?.state === 'recording') {
+        try { recognition.start(); } catch {}
+      }
+    };
+    recognition.start();
+    sttRef.current = recognition;
+  }, []);
+
   const startRecording = async () => {
     try {
       setError(null);
+      setLiveTranscript('');
+      setInterimText('');
+      sttTranscriptRef.current = '';
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ctx = new AudioContext();
       const src = ctx.createMediaStreamSource(stream);
@@ -328,9 +396,10 @@ function Recorder({ onComplete, onCancel }: {
       chunksRef.current = [];
       rec.ondataavailable = (e: BlobEvent) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       rec.onstop = async () => {
+        if (sttRef.current) { try { sttRef.current.stop(); } catch {} sttRef.current = null; }
         const end = Date.now();
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await processAudioBlob(blob, startRef.current, end);
+        await processAudioBlob(blob, startRef.current, end, sttTranscriptRef.current);
         stream.getTracks().forEach(t => t.stop());
       };
 
@@ -339,6 +408,9 @@ function Recorder({ onComplete, onCancel }: {
       setIsRecording(true);
       setRecTime(0);
       timerRef.current = window.setInterval(() => setRecTime(p => p + 1), 1000);
+
+      // STT開始
+      startSTT();
     } catch {
       setError('マイクへのアクセスが拒否されました。ブラウザの設定を確認してください。');
     }
@@ -457,10 +529,10 @@ function Recorder({ onComplete, onCancel }: {
 
   /* ─── Recording Mode ─── */
   return (
-    <div className="max-w-xl mx-auto pt-10">
+    <div className="max-w-2xl mx-auto pt-10">
       <div className="bg-white rounded-2xl border border-gray-200 p-10 shadow-sm text-center">
         <h2 className="text-xl font-bold mb-2 text-gray-900">マイクで録音</h2>
-        <p className="text-gray-400 mb-9 text-sm leading-relaxed">録音終了後、自動的に処理が開始されます。</p>
+        <p className="text-gray-400 mb-9 text-sm leading-relaxed">録音中はリアルタイムで文字起こしが表示されます。</p>
 
         {error && (
           <div className="bg-red-50 text-red-600 p-3.5 rounded-xl mb-6 flex gap-2.5 text-xs text-left">
@@ -473,47 +545,80 @@ function Recorder({ onComplete, onCancel }: {
           <div className="py-8">
             <Loader2 size={40} className="text-indigo-500 animate-spin mx-auto mb-4" />
             <p className="font-semibold text-gray-900 mb-1.5">
-              {procStep === 'saving' ? '音声を保存中...' : 'AIが解析中...'}
+              {procStep === 'saving' ? '音声を保存中...' : 'STT + Gemini AIで議事録を生成中...'}
             </p>
             <p className="text-xs text-gray-400">ブラウザを閉じないでください。</p>
+            {liveTranscript && (
+              <div className="mt-5 text-left bg-gray-50 rounded-xl p-4 max-h-40 overflow-y-auto border border-gray-200">
+                <div className="text-[10px] font-bold text-gray-400 mb-2">STT文字起こし（参考）</div>
+                <div className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">{liveTranscript}</div>
+              </div>
+            )}
           </div>
         ) : (
           <>
-            <div className="relative w-[180px] h-[180px] mx-auto mb-7 flex items-center justify-center">
-              {isRecording && (
-                <div className="absolute inset-0 rounded-full border-4 border-indigo-200 transition-transform"
-                  style={{ transform: `scale(${1 + audioLevel / 100})`, opacity: 0.5 + audioLevel / 200 }} />
-              )}
-              <div className={`w-[120px] h-[120px] rounded-full flex items-center justify-center z-10 transition-all ${isRecording ? 'bg-red-100 shadow-[0_0_30px_rgba(239,68,68,.15)]' : 'bg-gray-100'}`}>
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-300 text-gray-400'}`}>
-                  <Mic size={30} />
+            <div className="flex gap-6 items-start justify-center flex-wrap">
+              {/* 左：マイクビジュアル */}
+              <div className="flex flex-col items-center">
+                <div className="relative w-[140px] h-[140px] flex items-center justify-center">
+                  {isRecording && (
+                    <div className="absolute inset-0 rounded-full border-4 border-indigo-200 transition-transform"
+                      style={{ transform: `scale(${1 + audioLevel / 100})`, opacity: 0.5 + audioLevel / 200 }} />
+                  )}
+                  <div className={`w-[100px] h-[100px] rounded-full flex items-center justify-center z-10 transition-all ${isRecording ? 'bg-red-100 shadow-[0_0_30px_rgba(239,68,68,.15)]' : 'bg-gray-100'}`}>
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-300 text-gray-400'}`}>
+                      <Mic size={26} />
+                    </div>
+                  </div>
+                </div>
+
+                {isRecording && (
+                  <div className="flex flex-col items-center gap-1.5 mt-2">
+                    <div className="flex gap-[3px] items-center">
+                      {[...Array(10)].map((_, i) => (
+                        <div key={i} className="w-[4px] rounded transition-all"
+                          style={{ height: 6 + Math.min(audioLevel / 2, 20), background: audioLevel > i * 10 ? '#6366f1' : '#e2e8f0' }} />
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1 text-[9px] font-bold text-gray-300 tracking-widest uppercase">
+                      <Volume2 size={9} /> INPUT
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-3">
+                  <div className="text-3xl font-mono font-light tracking-widest text-gray-800">{fmtSec(recTime)}</div>
+                  {isRecording && (
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-red-500 mt-1 animate-pulse">
+                      <div className="w-2 h-2 rounded-full bg-red-500" /> REC
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* 右：リアルタイム文字起こし */}
               {isRecording && (
-                <div className="absolute -bottom-5 flex flex-col items-center gap-1.5 w-full">
-                  <div className="flex gap-[3px] items-center">
-                    {[...Array(10)].map((_, i) => (
-                      <div key={i} className="w-[5px] rounded transition-all"
-                        style={{ height: 8 + Math.min(audioLevel / 2, 24), background: audioLevel > i * 10 ? '#6366f1' : '#e2e8f0' }} />
-                    ))}
+                <div className="flex-1 min-w-[240px] max-w-[380px] text-left">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <FileText size={13} className="text-indigo-500" />
+                    <span className="text-[11px] font-bold text-indigo-500">リアルタイム文字起こし</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[9px] font-bold text-gray-300 tracking-widest uppercase">
-                    <Volume2 size={9} /> INPUT
+                  <div className="bg-gray-50 rounded-xl p-4 h-[200px] overflow-y-auto border border-gray-200">
+                    {!liveTranscript && !interimText ? (
+                      <p className="text-xs text-gray-300 italic">話し始めると文字起こしが表示されます...</p>
+                    ) : (
+                      <div className="text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                        {liveTranscript}
+                        {interimText && <span className="text-indigo-400">{interimText}</span>}
+                        <div ref={transcriptEndRef} />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            <div className={`mb-8 ${isRecording ? 'mt-6' : ''}`}>
-              <div className="text-4xl font-mono font-light tracking-widest text-gray-800">{fmtSec(recTime)}</div>
-              {isRecording && (
-                <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-red-500 mt-1.5 animate-pulse">
-                  <div className="w-2 h-2 rounded-full bg-red-500" /> REC
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-center gap-3">
+            <div className="flex justify-center gap-3 mt-6">
               {!isRecording ? (
                 <>
                   <button onClick={() => { setMode('choose'); setError(null); }}

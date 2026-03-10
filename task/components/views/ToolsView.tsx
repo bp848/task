@@ -3,6 +3,7 @@ import { ArrowLeft, X, Upload, Trash2 } from 'lucide-react';
 import { Task } from '../../types';
 import MeetingNotesAI from '../tools/MeetingNotesAI';
 import ProcurementAnalyzer from '../tools/ProcurementAnalyzer';
+import InvoiceOCR from '../tools/InvoiceOCR';
 import { compileJSX, loadCustomTools, saveCustomTool, deleteCustomTool, type CustomToolMeta } from '../../lib/jsxRuntime';
 
 /* ────────────────────────────────────────────
@@ -236,6 +237,16 @@ export const TOOL_REGISTRY: ToolDefinition[] = [
     component: MeetingNotesAI,
     tags: ['MTG', '会議', '議事録', 'ミーティング', '録音', '打ち合わせ', '面談', '商談'],
     category: 'communication',
+    size: 'fullPage',
+  },
+  {
+    id: 'invoice-ocr',
+    name: '請求書OCR → 支払先一覧',
+    description: '請求書PDFを複数回OCRし、高精度で読み取り支払先一覧をCSVダウンロード',
+    icon: '🧾',
+    component: InvoiceOCR,
+    tags: ['請求書', '請求', 'OCR', '支払', '振込', 'PDF', 'インボイス', '経理', '会計'],
+    category: 'productivity',
     size: 'fullPage',
   },
   {

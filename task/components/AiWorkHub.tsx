@@ -301,7 +301,7 @@ ${textToAnalyze}${contextSection}
 4. 報告書に使える一文サマリ`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         contents: prompt,
       });
       setAnalysis(response.text || '分析結果を取得できませんでした。');
@@ -558,7 +558,7 @@ Tel.03-3851-0111
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash',
         contents: `${personaInstruction}\n\n${prompt}`,
       });
 
