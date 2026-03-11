@@ -96,9 +96,20 @@ async function ocrPass(base64: string, mimeType: string, temperature: number): P
       },
     ],
   });
-  const raw = response.text || "[]";
+  // Thinking Modeの応答からthought部分を除外し、テキスト部分のみ取得
+  let raw = "";
+  const candidate = response.candidates?.[0];
+  if (candidate?.content?.parts) {
+    raw = candidate.content.parts
+      .filter((p: any) => p.text && !p.thought)
+      .map((p: any) => p.text)
+      .join("");
+  }
+  if (!raw) raw = response.text || "[]";
   const clean = raw.replace(/```json|```/g, "").trim();
-  const parsed = JSON.parse(clean);
+  // JSON配列部分のみ抽出（前後の余分なテキストを除去）
+  const jsonMatch = clean.match(/\[[\s\S]*\]/);
+  const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
   const arr = Array.isArray(parsed) ? parsed : [parsed];
   return {
     raw: clean,
