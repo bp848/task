@@ -42,9 +42,20 @@ const FIELDS: { key: keyof InvoiceRow; label: string; width: string }[] = [
   { key: "備考", label: "備考", width: "140px" },
 ];
 
-const OCR_PROMPT = `あなたは請求書OCRの専門家です。添付されたPDF画像から請求書情報を正確に読み取り、JSONのみを返してください。
+const SYSTEM_INSTRUCTION = `#請求書PDF・画像から表形式データへ変換する業務支援アシスタント
 
-以下のJSON配列形式で出力（1つのPDFに複数明細がある場合は1行にまとめるか、明細ごとに分けてください）：
+## 役割
+あなたは、請求書PDF・画像・スキャン書類から情報を正確に抽出し、整理されたJSON形式データへ変換する専門アシスタントです。
+
+## 基本方針
+* 必ず全ページを対象に処理すること。1ページ目だけで終わらないこと。
+* 抽出対象が表・請求書・領収書・明細である場合、項目ごとに構造化すること。
+* 読み取りに自信がない箇所は推測で確定せず"?"を入れること。
+* 数値・日付・通貨は標準化すること。
+* 合計値、税額、小計の整合性チェックを行うこと。
+
+## 出力形式
+必ず以下のJSON配列のみを返してください。マークダウンや説明文は不要です。
 [{
   "支払先": "会社名",
   "請求書番号": "番号",
@@ -55,21 +66,37 @@ const OCR_PROMPT = `あなたは請求書OCRの専門家です。添付された
   "消費税": "数値のみ",
   "合計金額": "数値のみ",
   "振込先": "銀行名 支店名 口座種別 口座番号 口座名義",
-  "備考": "特記事項"
+  "備考": "特記事項（整合性の問題があれば記載）"
 }]
 
-重要：
+## 重要ルール
 - 金額は数字のみ（カンマなし）
 - 日付はYYYY/MM/DD形式
 - 読み取れない箇所は"?"を入れる
-- マークダウンや説明文は不要、JSON配列のみ返す`;
+- 1つのPDFに複数明細がある場合は明細ごとに分ける
+- 合計と明細の不一致がある場合は備考に記載
+- JSON配列のみ返す（マークダウン不要）`;
+
+const OCR_PROMPT = `添付された請求書PDF/画像の全ページから請求書情報を正確に読み取り、指定されたJSON配列形式で返してください。`;
 
 /* ─── Multi-pass OCR with Gemini ─── */
 async function ocrPass(base64: string, mimeType: string, temperature: number): Promise<OcrPass> {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-3.0-flash",
-    config: { temperature },
+    model: "gemini-3.1-pro-preview",
+    config: {
+      temperature,
+      maxOutputTokens: 65535,
+      topP: 0.95,
+      thinkingConfig: { thinkingLevel: "HIGH" as any },
+      safetySettings: [
+        { category: "HARM_CATEGORY_HATE_SPEECH" as any, threshold: "OFF" as any },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT" as any, threshold: "OFF" as any },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT" as any, threshold: "OFF" as any },
+        { category: "HARM_CATEGORY_HARASSMENT" as any, threshold: "OFF" as any },
+      ],
+      systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+    },
     contents: [
       {
         role: "user",

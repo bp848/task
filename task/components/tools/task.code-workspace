@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../../../mqdriven"
+		},
+		{
+			"path": "../../../../bp-mypage"
 		}
 	],
 	"settings": {}
